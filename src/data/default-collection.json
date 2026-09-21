@@ -1,0 +1,359 @@
+{
+  "format": "openrequest.collection",
+  "version": 1,
+  "collection": {
+    "id": "f4067883-6a0e-4baf-bb29-c879fa45cc87",
+    "name": "test-apis-public",
+    "description": "",
+    "createdAt": 1790011184278
+  },
+  "requests": [
+    {
+      "id": "2d582abb-d03d-4dc6-a13d-f5ad9a4b1978",
+      "name": "hp-spells",
+      "method": "GET",
+      "url": "https://hp-api.onrender.com/api/spells",
+      "headers": [
+        {
+          "id": "b0be7b80-b7e0-4499-bd0a-882aa5ae8968",
+          "key": "",
+          "value": "",
+          "enabled": true
+        }
+      ],
+      "params": [
+        {
+          "id": "21fa3ee3-b732-44f9-ac48-25d66efd04ba",
+          "key": "",
+          "value": "",
+          "enabled": true
+        }
+      ],
+      "body": "",
+      "bodyType": "none",
+      "preRequestScript": "",
+      "postResponseScript": "",
+      "updatedAt": 1790013003284,
+      "collectionId": "f4067883-6a0e-4baf-bb29-c879fa45cc87",
+      "folderPath": []
+    },
+    {
+      "id": "db993e4d-d39f-472c-b5b1-eb60d45eb97f",
+      "name": "bmi-calculator",
+      "method": "GET",
+      "url": "https://bmicalculatorapi.vercel.app/api/bmi/87.9/1.75",
+      "headers": [
+        {
+          "id": "87fefec4-9e41-47b2-850b-fef916b17b68",
+          "key": "",
+          "value": "",
+          "enabled": true
+        }
+      ],
+      "params": [
+        {
+          "id": "7727174e-feb1-4f37-be98-53a376b5fba5",
+          "key": "",
+          "value": "",
+          "enabled": true
+        }
+      ],
+      "body": "",
+      "bodyType": "none",
+      "preRequestScript": "",
+      "postResponseScript": "",
+      "updatedAt": 1790012919340,
+      "collectionId": "f4067883-6a0e-4baf-bb29-c879fa45cc87",
+      "folderPath": []
+    },
+    {
+      "id": "23066ee9-6d50-43b3-9bd4-7488586561ab",
+      "name": "sunrise-sunset",
+      "method": "GET",
+      "url": "https://api.sunrise-sunset.org/json?lat=36.7201600&lng=-4.4203400",
+      "headers": [
+        {
+          "id": "0f7b3731-e93b-4855-b92d-f822f44fefea",
+          "key": "",
+          "value": "",
+          "enabled": true
+        }
+      ],
+      "params": [
+        {
+          "id": "4070b177-355e-4d03-b52d-2569011f32d1",
+          "key": "",
+          "value": "",
+          "enabled": true
+        }
+      ],
+      "body": "",
+      "bodyType": "none",
+      "preRequestScript": "",
+      "postResponseScript": "",
+      "updatedAt": 1790012196541,
+      "collectionId": "f4067883-6a0e-4baf-bb29-c879fa45cc87",
+      "folderPath": []
+    },
+    {
+      "id": "c059991b-670e-4a10-9297-f3b63bf8309a",
+      "name": "yes-or-no",
+      "method": "GET",
+      "url": "https://yesno.wtf/api",
+      "headers": [
+        {
+          "id": "000246b5-73b8-4aa0-bf43-595b80a9bd74",
+          "key": "",
+          "value": "",
+          "enabled": true
+        }
+      ],
+      "params": [
+        {
+          "id": "a1076d07-1912-4394-be7c-a4c7f4e1a926",
+          "key": "",
+          "value": "",
+          "enabled": true
+        }
+      ],
+      "body": "",
+      "bodyType": "none",
+      "preRequestScript": "",
+      "postResponseScript": "",
+      "updatedAt": 1790012130613,
+      "collectionId": "f4067883-6a0e-4baf-bb29-c879fa45cc87",
+      "folderPath": []
+    },
+    {
+      "id": "e7cba3f0-4b32-4a85-bb59-893a9565e0b5",
+      "name": "my_ip-address",
+      "method": "GET",
+      "url": "https://api.ipify.org/?format=json",
+      "headers": [
+        {
+          "id": "5dd300b3-463b-427e-8c75-4896b229dfc9",
+          "key": "",
+          "value": "",
+          "enabled": true
+        }
+      ],
+      "params": [
+        {
+          "id": "8cd96310-8017-4d33-9d1c-310e3752e84a",
+          "key": "",
+          "value": "",
+          "enabled": true
+        }
+      ],
+      "body": "",
+      "bodyType": "none",
+      "preRequestScript": "",
+      "postResponseScript": "",
+      "updatedAt": 1790011936284,
+      "collectionId": "f4067883-6a0e-4baf-bb29-c879fa45cc87",
+      "folderPath": []
+    },
+    {
+      "id": "23376f37-d1b4-4613-bd99-413e105def8f",
+      "name": "randomjoke",
+      "method": "GET",
+      "url": "https://official-joke-api.appspot.com/random_joke",
+      "headers": [
+        {
+          "id": "7f1e0442-b08c-43eb-b4d5-7c63baab8270",
+          "key": "",
+          "value": "",
+          "enabled": true
+        }
+      ],
+      "params": [
+        {
+          "id": "3f1ff46b-1d6b-41f1-98ef-32bac05494d6",
+          "key": "",
+          "value": "",
+          "enabled": true
+        }
+      ],
+      "body": "",
+      "bodyType": "none",
+      "preRequestScript": "",
+      "postResponseScript": "",
+      "updatedAt": 1790011897854,
+      "collectionId": "f4067883-6a0e-4baf-bb29-c879fa45cc87",
+      "folderPath": []
+    },
+    {
+      "id": "85480e49-b27c-4902-9381-c649deea1fe0",
+      "name": "users-DELETE",
+      "method": "DELETE",
+      "url": "https://reqres.in/api/users/2",
+      "headers": [
+        {
+          "id": "18a29e3d-200c-48d2-aec6-86e837731d3c",
+          "key": "",
+          "value": "",
+          "enabled": true
+        }
+      ],
+      "params": [
+        {
+          "id": "024c47cb-2f41-4e9c-b4d8-1553573f9e27",
+          "key": "",
+          "value": "",
+          "enabled": true
+        }
+      ],
+      "body": "",
+      "bodyType": "none",
+      "preRequestScript": "",
+      "postResponseScript": "",
+      "updatedAt": 1790011573764,
+      "collectionId": "f4067883-6a0e-4baf-bb29-c879fa45cc87",
+      "folderPath": [
+        "reqres"
+      ]
+    },
+    {
+      "id": "9019dc7d-10f9-44fd-a244-c566c1556191",
+      "name": "users-POST",
+      "method": "POST",
+      "url": "https://reqres.in/api/users",
+      "headers": [
+        {
+          "id": "8a533f29-09ba-4b70-89a9-cc97ec0955c3",
+          "key": "Content-Type",
+          "value": "application/json",
+          "enabled": true
+        },
+        {
+          "id": "2df2f49b-694b-4d8e-a29c-ea5139941a37",
+          "key": "",
+          "value": "",
+          "enabled": true
+        }
+      ],
+      "params": [
+        {
+          "id": "9f6596ce-bdaf-49b1-9b5f-e81a627c63dc",
+          "key": "",
+          "value": "",
+          "enabled": true
+        }
+      ],
+      "body": "{\"name\":\"morpheus\",\"job\":\"leader\"}",
+      "bodyType": "json",
+      "preRequestScript": "",
+      "postResponseScript": "",
+      "updatedAt": 1790011519519,
+      "collectionId": "f4067883-6a0e-4baf-bb29-c879fa45cc87",
+      "folderPath": [
+        "reqres"
+      ]
+    },
+    {
+      "id": "8489e692-3916-4f04-931b-b3cee7ae15b0",
+      "name": "users-PATCH",
+      "method": "PATCH",
+      "url": "https://reqres.in/api/users/2",
+      "headers": [
+        {
+          "id": "d8c78fad-2564-410d-8f99-ab3fc7bafd94",
+          "key": "Content-Type",
+          "value": "application/json",
+          "enabled": true
+        },
+        {
+          "id": "fadf28d5-5fc1-4971-84ec-591fccd47d02",
+          "key": "",
+          "value": "",
+          "enabled": true
+        }
+      ],
+      "params": [
+        {
+          "id": "efe732b6-160e-4013-9f2f-4aa96e46e381",
+          "key": "",
+          "value": "",
+          "enabled": true
+        }
+      ],
+      "body": "{\"job\":\"zion resident\"}",
+      "bodyType": "json",
+      "preRequestScript": "",
+      "postResponseScript": "",
+      "updatedAt": 1790011495417,
+      "collectionId": "f4067883-6a0e-4baf-bb29-c879fa45cc87",
+      "folderPath": [
+        "reqres"
+      ]
+    },
+    {
+      "id": "16ded219-2641-4524-9c71-eea2a6cf683e",
+      "name": "users-PUT",
+      "method": "PUT",
+      "url": "https://reqres.in/api/users/2",
+      "headers": [
+        {
+          "id": "1fb5c469-5da3-4531-83cf-effa55100db5",
+          "key": "Content-Type",
+          "value": "application/json",
+          "enabled": true
+        },
+        {
+          "id": "8672e7e4-20f0-4b8d-afb9-34b5b8422c85",
+          "key": "",
+          "value": "",
+          "enabled": true
+        }
+      ],
+      "params": [
+        {
+          "id": "3ad7c5f4-baa4-4351-a02e-d7cae3d2fe99",
+          "key": "",
+          "value": "",
+          "enabled": true
+        }
+      ],
+      "body": "{\"name\":\"morpheus\",\"job\":\"zion resident\"}",
+      "bodyType": "json",
+      "preRequestScript": "",
+      "postResponseScript": "",
+      "updatedAt": 1790011410336,
+      "collectionId": "f4067883-6a0e-4baf-bb29-c879fa45cc87",
+      "folderPath": [
+        "reqres"
+      ]
+    },
+    {
+      "id": "f23c1c96-64f5-40ae-bbd8-d2c4035b6527",
+      "name": "users-GET",
+      "method": "GET",
+      "url": "https://reqres.in/api/users?page=2",
+      "headers": [
+        {
+          "id": "2a047ca2-7a40-4145-9a0c-4063a7bdc3d7",
+          "key": "",
+          "value": "",
+          "enabled": true
+        }
+      ],
+      "params": [
+        {
+          "id": "5488aa52-c4cc-4fff-bab5-463ce0ca0bd7",
+          "key": "",
+          "value": "",
+          "enabled": true
+        }
+      ],
+      "body": "",
+      "bodyType": "none",
+      "preRequestScript": "",
+      "postResponseScript": "",
+      "updatedAt": 1790011246865,
+      "collectionId": "f4067883-6a0e-4baf-bb29-c879fa45cc87",
+      "folderPath": [
+        "reqres"
+      ]
+    }
+  ]
+}

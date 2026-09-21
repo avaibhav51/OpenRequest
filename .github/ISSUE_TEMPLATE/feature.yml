@@ -1,0 +1,32 @@
+name: Feature proposal
+description: Suggest a focused improvement to the local-first API workbench.
+title: "[Feature]: "
+labels: [enhancement]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem
+      description: What workflow is difficult today? Please describe the need before the solution.
+    validations:
+      required: true
+  - type: dropdown
+    id: mode
+    attributes:
+      label: Where should this work?
+      multiple: true
+      options:
+        - Browser / PWA without an account
+        - Local bridge
+        - CLI / CI
+        - Optional sync
+        - Self-hosted service
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed experience
+      description: Describe the smallest useful version and any privacy, security, or cost impact.
+    validations:
+      required: true
