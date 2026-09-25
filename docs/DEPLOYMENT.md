@@ -18,6 +18,15 @@ npm run dev
 
 Open `http://localhost:5173`.
 
+The Vite development server favors fast source updates and this project does not enable its production service worker there. Test installation with a production build:
+
+```bash
+npm run build
+npm run preview
+```
+
+Open the localhost URL printed by Vite, reload once if necessary, then use Chrome/Edge's address-bar install icon or browser menu. On supported macOS Safari versions use **File -> Add to Dock**. For a phone, use the deployed HTTPS site; a phone opening `http://YOUR_IP:5173` is not `localhost` and most browsers will not treat that LAN HTTP origin as installable.
+
 Run checks:
 
 ```bash
@@ -70,7 +79,9 @@ This repo includes `.github/workflows/deploy-pages.yml`. After you push to GitHu
 1. Open the repository on GitHub.
 2. Go to Settings -> Pages.
 3. Set Source to GitHub Actions.
-4. Push to `main`.
+4. Do **not** select or configure the suggested Jekyll or Static HTML workflows. This repository already contains `.github/workflows/deploy-pages.yml` and needs its Vite build step.
+5. Push this workflow and the application to `main`, or open Actions -> Deploy GitHub Pages -> Run workflow if it is already pushed.
+6. Open Actions and wait for both the `build` and `deploy` jobs to succeed. The Pages settings screen will then show the deployed URL.
 
 The workflow runs tests, builds the PWA, uploads `dist/`, and deploys it to Pages. It also handles the base path difference between `owner.github.io` repositories and normal project repositories.
 
@@ -80,6 +91,8 @@ Optional auth variables can be added as repository variables:
 - `VITE_SUPABASE_ANON_KEY`
 
 These values are public frontend configuration. Do not add service-role keys, OAuth client secrets, SMTP passwords, or SMS provider credentials to frontend build variables.
+
+Add them at **Repository -> Settings -> Secrets and variables -> Actions -> Variables -> New repository variable**. They are injected when GitHub Actions builds the frontend, so changing one requires another deployment. Every visitor receives the same public project URL and publishable key; individual identity and access come from the user's Supabase session, not from hiding this key.
 
 ## Cloudflare Pages
 

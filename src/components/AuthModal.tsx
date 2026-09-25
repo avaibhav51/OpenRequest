@@ -4,6 +4,8 @@ import { authClient, authConfigured, type AuthUser } from '../lib/auth'
 
 type EmailMode = 'sign-in' | 'sign-up'
 
+const authRedirectUrl = new URL(import.meta.env.BASE_URL, window.location.origin).href
+
 export function AuthModal({ user, close }: { user: AuthUser | null; close: () => void }) {
   const [emailMode, setEmailMode] = useState<EmailMode>('sign-in')
   const [email, setEmail] = useState('')
@@ -25,7 +27,7 @@ export function AuthModal({ user, close }: { user: AuthUser | null; close: () =>
   const oauth = async (provider: 'google' | 'github') => {
     if (!authClient) return
     setBusy(provider); setError('')
-    const { error } = await authClient.auth.signInWithOAuth({ provider, options: { redirectTo: window.location.origin } })
+    const { error } = await authClient.auth.signInWithOAuth({ provider, options: { redirectTo: authRedirectUrl } })
     if (error) { setError(error.message); setBusy('') }
   }
   const submitPassword = () => {
@@ -33,13 +35,13 @@ export function AuthModal({ user, close }: { user: AuthUser | null; close: () =>
     if (!client || !email || !password) return
     const action = emailMode === 'sign-in'
       ? () => client.auth.signInWithPassword({ email, password })
-      : () => client.auth.signUp({ email, password, options: { emailRedirectTo: window.location.origin } })
+      : () => client.auth.signUp({ email, password, options: { emailRedirectTo: authRedirectUrl } })
     run('password', action, emailMode === 'sign-in' ? 'Signed in.' : 'Account created. Check your email if confirmation is enabled.')
   }
 
   return <div className="modal-backdrop" onMouseDown={(event) => event.target === event.currentTarget && close()}>
-    <section className="modal auth-modal" role="dialog" aria-modal="true" aria-label="Sign in and sync">
-      <header><div><KeyRound /><div><h2>{user ? 'Account' : 'Sign in and sync'}</h2><p>Optional—local mode never requires an account.</p></div></div><button className="icon-button" onClick={close}><X /></button></header>
+    <section className="modal auth-modal" role="dialog" aria-modal="true" aria-label="Experimental account access">
+      <header><div><KeyRound /><div><h2>{user ? 'Experimental account' : 'Experimental account access'}</h2><p>Authentication only—cross-device sync is not available yet.</p></div></div><button className="icon-button" onClick={close}><X /></button></header>
       <div className="modal-body auth-content">
         {user ? <>
           <div className="signed-in-card"><ShieldCheck /><div><strong>Signed in</strong><span>{user.email ?? user.phone ?? user.id}</span></div></div>
@@ -58,7 +60,7 @@ export function AuthModal({ user, close }: { user: AuthUser | null; close: () =>
           <label>Email<input type="email" autoComplete="email" value={email} onChange={(event) => setEmail(event.target.value)} placeholder="you@example.com" /></label>
           <label>Password<input type="password" autoComplete={emailMode === 'sign-in' ? 'current-password' : 'new-password'} value={password} onChange={(event) => setPassword(event.target.value)} placeholder="At least 8 characters" /></label>
           <button className="auth-primary" onClick={submitPassword} disabled={Boolean(busy) || !email || !password}><Mail size={15} /> {emailMode === 'sign-in' ? 'Sign in with email' : 'Create email account'}</button>
-          <button className="auth-secondary" onClick={() => authClient && run('magic', () => authClient!.auth.signInWithOtp({ email, options: { emailRedirectTo: window.location.origin } }), 'Check your email for the sign-in link.')} disabled={Boolean(busy) || !email}><MessageSquareText size={15} /> Send email sign-in link</button>
+          <button className="auth-secondary" onClick={() => authClient && run('magic', () => authClient!.auth.signInWithOtp({ email, options: { emailRedirectTo: authRedirectUrl } }), 'Check your email for the sign-in link.')} disabled={Boolean(busy) || !email}><MessageSquareText size={15} /> Send email sign-in link</button>
           {message && <p className="auth-message ok">{message}</p>}{error && <p className="auth-message bad">{error}</p>}
           <p className="auth-note">Your local collections stay local. Account sync is not enabled yet.</p>
         </>}

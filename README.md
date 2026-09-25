@@ -22,7 +22,7 @@ The current app is a React/Vite PWA. It stores data in your browser by default a
 - Use environment-tagged variables with isolated values, `{{variable}}` substitution, built-ins, and secret masking.
 - Run basic safe scripts for assertions, temporary request changes, and response capture.
 - Export collections/subcollections as versioned JSON.
-- Install as a PWA on supported desktop and mobile browsers.
+- Install the production build as a PWA on supported desktop and mobile browsers. The normal Vite development server is not an installability test.
 - Switch dark/light theme.
 - Enable optional Google, GitHub, email/password, or email link login when auth is configured.
 
@@ -43,6 +43,15 @@ npm run dev
 ```
 
 Open `http://localhost:5173`.
+
+`npm run dev` is optimized for development and does not enable this project's production service worker. To test PWA installation locally, use the production build instead:
+
+```bash
+npm run build
+npm run preview
+```
+
+Open the localhost URL printed by Vite. In Chrome or Edge, look for the install icon in the address bar or use the browser menu. Safari on macOS uses **File -> Add to Dock** on supported versions. If no install choice appears, reload once after the production build has registered its service worker and check the browser's developer-tools manifest/service-worker panels.
 
 For a fresh clone later:
 
@@ -109,7 +118,7 @@ VITE_SUPABASE_URL=https://YOUR_PROJECT.supabase.co
 VITE_SUPABASE_ANON_KEY=YOUR_PUBLIC_ANON_OR_PUBLISHABLE_KEY
 ```
 
-Then configure the providers in Supabase Auth and restart the dev server.
+Then configure the providers in Supabase Auth and restart the dev server. Adding the URL and public key connects the frontend to the project; it does not automatically configure Google/GitHub OAuth, production email delivery, redirects, CAPTCHA, or future collection sync.
 
 Read:
 
@@ -121,6 +130,7 @@ Important short version:
 - Google, GitHub, and email auth can usually be tested on free tiers.
 - Phone/SMS OTP is intentionally not included because reliable delivery normally needs a paid provider and abuse controls.
 - Passwords are not stored in this frontend app. Supabase stores password hashes in its Auth database.
+- The Supabase URL and publishable/anon key are public application identifiers, not administrator credentials. Protect future database tables with Row Level Security and never expose a secret/service-role key.
 - API secrets that you type into variables are currently only browser-local and masked, not encrypted at rest.
 
 ## Request authorization
