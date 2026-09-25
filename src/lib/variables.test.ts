@@ -15,7 +15,8 @@ describe('variables', () => {
   })
 
   it('finds unique references', () => {
-    const request = { ...newRequest(), url: '{{baseUrl}}/{{id}}', body: '{{id}}' }
-    expect(referencedVariables(request)).toEqual(['baseUrl', 'id'])
+    const request = { ...newRequest(), url: '{{baseUrl}}/{{id}}', body: '{{id}}', auth: { type: 'bearer' as const, token: '{{accessToken}}' } }
+    expect(referencedVariables(request)).toEqual(['baseUrl', 'id', 'accessToken'])
+    expect(resolveRequest(request, { baseUrl: 'https://example.com', id: '1', accessToken: 'secret' }).auth).toEqual({ type: 'bearer', token: 'secret' })
   })
 })

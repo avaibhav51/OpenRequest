@@ -50,6 +50,10 @@ No existing leader makes every step optional while keeping one portable source o
 
 ### Request and response workbench
 
+The immediate editor-consistency workstream is tracked in [Request editor synchronization plan](REQUEST_EDITOR_SYNC_PLAN.md). It prioritizes imported authorization, generated header/parameter visibility, body/content-type synchronization, forms, auth conflicts, method/body compatibility, and safe response representations. URL-removal undo behavior is explicitly deferred until those first picks are complete.
+
+Its deferred-update queue currently contains two scoped items: the complete browser multipart-file lifecycle and committed URL/Params reconciliation with reversible removal. Multipart text fields already work; this queue covers actual user-selected files, safe persistence/export behavior, and parameter-loss protection.
+
 - **[M0 Must]** REST methods, URL, params, headers, JSON/text/form/multipart bodies, redirects, timing, size, searchable formatted/raw response.
 - **[M0 Must]** Paste cURL, URL auto-detection, copy cURL, syntax highlighting, JSON validation/formatting.
 - **[M0 Must]** Auth helpers: Basic, Bearer, API key, OAuth 2 authorization-code + PKCE; secrets remain local by default.
@@ -68,6 +72,8 @@ No existing leader makes every step optional while keeping one portable source o
 - **[M0 Must]** File System Access API where supported, plus explicit JSON/YAML import/export fallback on Safari/iOS.
 - **[M1 Should]** Pre-request/post-response scripts in a constrained worker sandbox; assertions and reusable snippets.
 - **[M1 Should]** Collection runner with iteration data from CSV/JSON, result export, and CLI parity. Never make local data-file runs paid.
+- **[M1 Should]** Browser performance smoke runner with conservative sequential limits, assertions, latency summaries, and local export. Label it as a preview rather than a load generator.
+- **[M2 Later] [Bridge]** Companion/CLI load testing with concurrency, arrival rates, ramps, percentiles, thresholds, generator-health metrics, comparisons, and CI reports. Keep execution local and apply explicit authorization and safety limits. See the [Performance and load-testing plan](PERFORMANCE_LOAD_TESTING_PLAN.md).
 - **[M1 Should]** Git-friendly conflict detection; Git itself remains external at first.
 - **[M2 Later]** Local mock server, scheduled runner, generated docs, code snippets, CI reporter formats.
 
@@ -87,7 +93,7 @@ No existing leader makes every step optional while keeping one portable source o
 - **[M1 Should] [Optional service]** Google and GitHub OAuth; email/password; email code/link. Use standards-based adapters so self-hosters can choose their own OpenID Connect provider.
 - **[M1 Should] [Optional service]** End-to-end encrypted workspace sync: encrypt on device; server stores ciphertext; recovery key belongs to the user. Exclude active secrets by default.
 - **[M2 Later] [Optional service]** Passkeys, device pairing, shared encrypted workspaces, append-only revision log.
-- **[Not zero-cost]** Mobile SMS OTP. An auth server can be free/self-hosted, but reliable SMS delivery is a metered telecom service and abuse target. Supabase explicitly requires an SMS provider for phone auth ([official docs](https://supabase.com/docs/guides/auth/passwords)); do not promise this free. Offer email OTP, TOTP/passkeys, or user-configured SMS credentials instead.
+- **[Out of scope]** Mobile SMS OTP. Reliable delivery is a metered telecom service and abuse target, so it is deliberately excluded from the reference app. Prefer email links, passkeys/TOTP, or OAuth.
 
 ## Delivery roadmap
 
@@ -105,7 +111,7 @@ Environments/secrets, auth helpers, nested collection UI, tabs, Postman/OpenAPI/
 
 ### Phase 2 — bridge + files + CLI (6–10 weeks)
 
-Rust or Go localhost bridge, native unrestricted HTTP, native gRPC, certificate store, OpenCollection evaluation/adoption, filesystem workspace, headless collection runner, CI output. Bind only to loopback, use an origin allowlist and pairing token, show every privileged capability.
+Java 25 LTS localhost companion, native unrestricted HTTP, native gRPC, certificate store, OpenCollection evaluation/adoption, filesystem workspace, headless collection/performance runner, load-test metrics, and CI output. Bind only to loopback, use an exact origin allowlist and authenticated pairing, and show every privileged capability. See the [Local companion service plan](COMPANION_SERVICE_PLAN.md) and [Performance and load-testing plan](PERFORMANCE_LOAD_TESTING_PLAN.md).
 
 **Exit:** Browser UI can securely handle APIs that CORS or native protocols block; the same collection runs in CI.
 
@@ -130,7 +136,7 @@ Encrypted sharing, review links, Git workflows, mocks, scheduled local runner. A
 | Email/password | Password auth has no delivery cost; local dev can use Mailpit | Password reset/verification emails need an SMTP provider. Built-in provider limits are unsuitable for production; deliverability is never guaranteed free. |
 | Email code/link | User-supplied SMTP or a limited free email tier | Rate-limit and add bot protection. Free quotas and sender requirements change. Password/passkey is the durable no-email fallback. |
 | Google/GitHub login | Provider app registration is generally free | OAuth consent configuration, privacy policy, redirect domain, and provider policy compliance are still required. Provider availability is external risk. |
-| Phone OTP | None that is reliably free, global, and abuse-resistant | Mark experimental/self-configured. Prefer passkeys, TOTP, email code, or OAuth. Never use unofficial SMS gateways. |
+| Phone OTP | None that is reliably free, global, and abuse-resistant | Excluded from the reference app. Prefer passkeys, TOTP, email links, or OAuth. |
 | Proxy/bridge | User runs the signed open-source localhost companion | A centrally hosted proxy creates bandwidth bills and sees sensitive traffic. Do not offer it as the default. |
 | Monitoring | Local runner + user's GitHub Actions schedule | Hosted always-on schedules consume someone’s compute. Keep the format runnable anywhere. |
 

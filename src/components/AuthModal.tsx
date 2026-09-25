@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Github, KeyRound, LogOut, Mail, MessageSquareText, ShieldCheck, Smartphone, X } from 'lucide-react'
+import { Github, KeyRound, LogOut, Mail, MessageSquareText, ShieldCheck, X } from 'lucide-react'
 import { authClient, authConfigured, type AuthUser } from '../lib/auth'
 
 type EmailMode = 'sign-in' | 'sign-up'
@@ -8,9 +8,6 @@ export function AuthModal({ user, close }: { user: AuthUser | null; close: () =>
   const [emailMode, setEmailMode] = useState<EmailMode>('sign-in')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
-  const [phone, setPhone] = useState('')
-  const [phoneOtp, setPhoneOtp] = useState('')
-  const [phoneOtpSent, setPhoneOtpSent] = useState(false)
   const [busy, setBusy] = useState('')
   const [message, setMessage] = useState('')
   const [error, setError] = useState('')
@@ -52,7 +49,7 @@ export function AuthModal({ user, close }: { user: AuthUser | null; close: () =>
           <div className="config-needed"><ShieldCheck /><div><strong>Login is not configured in this local build</strong><p>Add the two public Supabase settings described below, then restart the development server. The app stays fully usable locally meanwhile.</p></div></div>
           <div className="config-code"><code>VITE_SUPABASE_URL=https://…</code><code>VITE_SUPABASE_ANON_KEY=…</code></div>
           <p className="auth-note">Use Supabase's free hosted tier or a self-hosted Supabase instance. Configure Google and GitHub in that project's Auth providers. Never put a service-role key in the frontend.</p>
-          <div className="provider-grid"><button disabled><span className="google-mark">G</span> Google</button><button disabled><Github size={16} /> GitHub</button><button disabled><Mail size={16} /> Email</button><button disabled><Smartphone size={16} /> Mobile OTP</button></div>
+          <div className="provider-grid"><button disabled><span className="google-mark">G</span> Google</button><button disabled><Github size={16} /> GitHub</button><button disabled><Mail size={16} /> Email</button></div>
           <div className="modal-actions"><span className="docs-pointer">See <code>docs/AUTH_SETUP.md</code></span><button className="primary" onClick={close}>Continue locally</button></div>
         </> : <>
           <div className="provider-grid"><button onClick={() => oauth('google')} disabled={Boolean(busy)}><span className="google-mark">G</span> Continue with Google</button><button onClick={() => oauth('github')} disabled={Boolean(busy)}><Github size={16} /> Continue with GitHub</button></div>
@@ -61,8 +58,7 @@ export function AuthModal({ user, close }: { user: AuthUser | null; close: () =>
           <label>Email<input type="email" autoComplete="email" value={email} onChange={(event) => setEmail(event.target.value)} placeholder="you@example.com" /></label>
           <label>Password<input type="password" autoComplete={emailMode === 'sign-in' ? 'current-password' : 'new-password'} value={password} onChange={(event) => setPassword(event.target.value)} placeholder="At least 8 characters" /></label>
           <button className="auth-primary" onClick={submitPassword} disabled={Boolean(busy) || !email || !password}><Mail size={15} /> {emailMode === 'sign-in' ? 'Sign in with email' : 'Create email account'}</button>
-          <button className="auth-secondary" onClick={() => authClient && run('magic', () => authClient!.auth.signInWithOtp({ email, options: { emailRedirectTo: window.location.origin } }), 'Check your email for the sign-in link/code.')} disabled={Boolean(busy) || !email}><MessageSquareText size={15} /> Send email code/link</button>
-          <details className="phone-auth"><summary><Smartphone size={15} /> Mobile OTP</summary><p>Reliable SMS delivery requires a configured provider and is normally metered.</p><div><input type="tel" value={phone} onChange={(event) => setPhone(event.target.value)} placeholder="+919876543210" /><button onClick={async () => authClient && setPhoneOtpSent(await run('phone', () => authClient!.auth.signInWithOtp({ phone }), 'OTP sent. Enter it below.'))} disabled={Boolean(busy) || !phone}>Send OTP</button></div>{phoneOtpSent && <div><input inputMode="numeric" autoComplete="one-time-code" value={phoneOtp} onChange={(event) => setPhoneOtp(event.target.value)} placeholder="6-digit OTP" /><button onClick={() => authClient && run('verify-phone', () => authClient!.auth.verifyOtp({ phone, token: phoneOtp, type: 'sms' }), 'Phone verified and signed in.')} disabled={Boolean(busy) || !phoneOtp}>Verify</button></div>}</details>
+          <button className="auth-secondary" onClick={() => authClient && run('magic', () => authClient!.auth.signInWithOtp({ email, options: { emailRedirectTo: window.location.origin } }), 'Check your email for the sign-in link.')} disabled={Boolean(busy) || !email}><MessageSquareText size={15} /> Send email sign-in link</button>
           {message && <p className="auth-message ok">{message}</p>}{error && <p className="auth-message bad">{error}</p>}
           <p className="auth-note">Your local collections stay local. Account sync is not enabled yet.</p>
         </>}

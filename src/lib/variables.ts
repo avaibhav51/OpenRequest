@@ -26,16 +26,28 @@ export function resolveText(input: string, variables: VariableMap, strict = true
 }
 
 export function resolveRequest(request: RequestDraft, variables: VariableMap): RequestDraft {
+  const auth = request.auth?.type === 'bearer'
+    ? { ...request.auth, token: resolveText(request.auth.token, variables) }
+    : request.auth?.type === 'basic'
+      ? { ...request.auth, username: resolveText(request.auth.username, variables), password: resolveText(request.auth.password, variables) }
+      : request.auth?.type === 'api-key'
+        ? { ...request.auth, key: resolveText(request.auth.key, variables), value: resolveText(request.auth.value, variables) }
+        : request.auth
   return {
     ...request,
     url: resolveText(request.url, variables),
     body: resolveText(request.body, variables),
     headers: request.headers.map((item) => ({ ...item, key: resolveText(item.key, variables), value: resolveText(item.value, variables) })),
-    params: request.params.map((item) => ({ ...item, key: resolveText(item.key, variables), value: resolveText(item.value, variables) }))
+    params: request.params.map((item) => ({ ...item, key: resolveText(item.key, variables), value: resolveText(item.value, variables) })),
+    bodyFields: request.bodyFields?.map((item) => ({ ...item, key: resolveText(item.key, variables), value: resolveText(item.value, variables) })),
+    auth
   }
 }
 
 export const referencedVariables = (request: RequestDraft) => {
-  const source = [request.url, request.body, ...request.headers.flatMap((item) => [item.key, item.value]), ...request.params.flatMap((item) => [item.key, item.value])].join('\n')
+  const authValues = request.auth?.type === 'bearer' ? [request.auth.token]
+    : request.auth?.type === 'basic' ? [request.auth.username, request.auth.password]
+      : request.auth?.type === 'api-key' ? [request.auth.key, request.auth.value] : []
+  const source = [request.url, request.body, ...request.headers.flatMap((item) => [item.key, item.value]), ...request.params.flatMap((item) => [item.key, item.value]), ...(request.bodyFields ?? []).flatMap((item) => [item.key, item.value]), ...authValues].join('\n')
   return [...new Set([...source.matchAll(/\{\{\s*([^{}]+?)\s*\}\}/g)].map((match) => match[1].trim()))]
 }

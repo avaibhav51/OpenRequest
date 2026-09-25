@@ -28,6 +28,12 @@ REST requests, local collections, history, import/export, and an installable PWA
 
 A backend becomes justified only when at least one accepted milestone needs cross-device encrypted sync, account recovery, shared workspaces, or a hosted revision log. Browser CORS and native gRPC are not reasons for a hosted backend: the correct privacy-preserving solution is an opt-in local bridge.
 
+## Local companion baseline
+
+The optional companion is distinct from the account/sync backend. Use Java 25 LTS and bundle a minimal Temurin-based runtime with `jlink`/`jpackage`, so end users do not install or configure Java. Maven Wrapper is the contributor entry point. Select the outbound HTTP engine through a focused conformance spike covering HTTP/2, streaming, cancellation, proxies, TLS, redirects, and large bodies; use official `grpc-java` libraries for native gRPC.
+
+The companion has no database or cloud dependency and listens only on loopback. Its protocol, pairing model, security gates, packaging phases, and acceptance criteria are defined in [Local companion service plan](COMPANION_SERVICE_PLAN.md).
+
 ## Java backend baseline
 
 Use the latest LTS rather than the latest six-month feature release. Java 25 is the current LTS according to the [Oracle Java support roadmap](https://www.oracle.com/java/technologies/java-se-support-roadmap.html). Prefer an open-source build such as Eclipse Temurin 25 for development and containers; do not require a paid Oracle Java subscription. The current [Spring Boot system requirements](https://docs.spring.io/spring-boot/system-requirements.html) include Java 25.
@@ -67,7 +73,7 @@ Every additional dependency needs a maintained upstream, compatible open-source 
 - Self-hosters can use Keycloak or another standards-compliant OIDC provider.
 - Username/password requires password hashing, reset, verification, throttling, breached-password defenses, and session revocation. Do not implement a casual custom auth system.
 - Email code/link requires SMTP and abuse controls; production delivery is not guaranteed free.
-- SMS OTP requires a paid delivery provider in practice and remains user-configured/optional.
+- SMS OTP requires a paid delivery provider in practice and is excluded from the reference app.
 - Sync encryption keys are separate from login credentials so the server cannot decrypt workspaces.
 
 ## Open-source and reliability policy

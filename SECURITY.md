@@ -6,4 +6,6 @@ The current `0.x` prototype is not yet suitable for storing production secrets. 
 
 Environment values marked secret are visually masked and excluded from collection exports, but they are not yet encrypted at rest. The basic script language is declarative and does not execute arbitrary JavaScript.
 
+Optional login uses public frontend configuration only. Do not commit Supabase service-role keys, OAuth client secrets, SMTP passwords, SMS provider credentials, database passwords, or signing keys. See [Auth data, storage, and costs](docs/AUTH_DATA_AND_COSTS.md).
+
 The project will publish a threat model before optional sync, scripting, or the localhost bridge is considered stable.

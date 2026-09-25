@@ -68,6 +68,8 @@ There is intentionally no backend in the current milestone. When account-based s
 
 ### Local bridge
 
+The staged implementation, packaging, protocol, UX, and acceptance plan lives in [Local companion service plan](COMPANION_SERVICE_PLAN.md).
+
 - Listen on `127.0.0.1`/`::1` only, never all interfaces by default.
 - Pair each browser profile using a high-entropy one-time code; keep a revocable origin allowlist.
 - Require authentication on every request; defend DNS rebinding; validate `Origin` and `Host`.
@@ -111,3 +113,5 @@ The export envelope already includes `format` and `version`. Before compatibilit
 ## Deployment
 
 The PWA builds to static files and can use GitHub Pages, Cloudflare Pages, Netlify, a local web server, or any container/static host. Runtime configuration must not contain private keys. OAuth public client IDs are not secrets; provider client secrets belong only in an optional backend.
+
+Operational deployment steps live in [Deployment](DEPLOYMENT.md). Auth/session/credential storage details live in [Auth data, storage, and costs](AUTH_DATA_AND_COSTS.md).

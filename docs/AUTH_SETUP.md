@@ -2,7 +2,9 @@
 
 Authentication is optional. The PWA, local collections, environments, scripts, history, import, and export work indefinitely without an account. Signing in currently creates an account session; encrypted collection sync is a later milestone.
 
-The reference adapter uses the official open-source `@supabase/supabase-js` client. It works with Supabase's hosted Free plan or a self-hosted Supabase deployment. Supabase Auth supports passwords, magic links/OTP, social providers, and phone providers; see the [official Auth overview](https://supabase.com/docs/guides/auth).
+The reference adapter uses the official open-source `@supabase/supabase-js` client. It works with Supabase's hosted Free plan or a self-hosted Supabase deployment. This app exposes passwords, email magic links, and Google/GitHub social providers; see the [official Auth overview](https://supabase.com/docs/guides/auth).
+
+For the full storage and cost map, including where passwords, sessions, and OAuth secrets live, read [Auth data, storage, and costs](AUTH_DATA_AND_COSTS.md).
 
 ## Fastest local setup
 
@@ -18,7 +20,7 @@ The reference adapter uses the official open-source `@supabase/supabase-js` clie
 4. In Auth → URL Configuration, set the Site URL to `http://localhost:5173` for local development and add it to the allowed redirect URLs. Add the final production URL before deployment. Supabase documents the redirect allow-list behavior in its [Redirect URLs guide](https://supabase.com/docs/guides/auth/redirect-urls).
 5. Restart `npm run dev`. The top-bar **Sign in** button will enable the configured methods.
 
-The anon/publishable key is designed for frontend use with Row Level Security. Never place a service-role key, OAuth provider secret, SMTP password, or SMS credential in a `VITE_` variable. `.env.local` is ignored by this repository.
+The anon/publishable key is designed for frontend use with Row Level Security. Never place a service-role key, OAuth provider secret, or SMTP password in a `VITE_` variable. `.env.local` is ignored by this repository.
 
 ## Email
 
@@ -27,7 +29,7 @@ Email/password is enabled by default on hosted Supabase projects. Email verifica
 The current UI supports:
 
 - email/password sign-in and registration;
-- email magic-link/code request;
+- email magic-link request;
 - session persistence and sign-out.
 
 Username profiles are not yet implemented. Do not treat a display name as an authentication identifier.
@@ -38,15 +40,15 @@ Enable each provider in the Supabase Auth provider settings, then create the cor
 
 Provider client secrets belong in Supabase/provider configuration—not in this frontend repository.
 
-## Mobile OTP
+## Excluded paid-delivery methods
 
-Enable Phone Auth and configure a supported SMS provider. Sending and verifying OTPs is implemented in the UI, but reliable SMS delivery is not free: providers charge per message and the endpoint needs CAPTCHA, throttling, and spend limits before public launch. Keep phone OTP disabled when no provider is configured.
+Phone/SMS OTP is deliberately not exposed by the app. Reliable delivery requires a messaging provider and introduces metered cost and abuse controls. Deployments that need phone verification should maintain it as their own downstream integration rather than making it a default OpenRequest dependency.
 
 ## Self-hosting
 
 Supabase documents Docker as its recommended self-hosting path, and states that the self-hosted stack does not phone home or collect telemetry. See [Self-Hosting](https://supabase.com/docs/guides/self-hosting) and [self-hosted Auth configuration](https://supabase.com/docs/guides/self-hosting/auth/config).
 
-Self-hosting transfers responsibility for updates, backups, SMTP, OAuth secrets, SMS configuration, abuse prevention, availability, and security monitoring to the operator. It removes a mandatory SaaS dependency, but it is not zero-effort hosting.
+Self-hosting transfers responsibility for updates, backups, SMTP, OAuth secrets, abuse prevention, availability, and security monitoring to the operator. It removes a mandatory SaaS dependency, but it is not zero-effort hosting.
 
 ## Current boundary
 

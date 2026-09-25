@@ -1,61 +1,150 @@
 # Open Request Workbench
 
-> Working name. A private, local-first, open-source API workbench that opens instantly in a browser and remains useful without an account or backend.
+Open Request Workbench is a local-first, open-source API workbench for REST exploration, collections, variables, scripts, cURL import, and browser/PWA use. It is meant to feel closer to Postman, HTTPie, and Hoppscotch, but with a hard rule: useful local mode must work without signup, a server, or a paid account.
 
-This repository contains the first vertical slice: an installable PWA with a REST request builder, cURL import/export, browser-local collections and history, nested folder metadata, per-collection export, responsive mobile UI, and dark/light themes.
+Created by [Vaibhav Agarwal](https://avaibhav51.github.io).
 
-## Principles
+The current app is a React/Vite PWA. It stores data in your browser by default and can optionally enable login through a hosted or self-hosted Supabase Auth project.
 
-1. **Useful before signup.** Local mode is the product, not a trial.
-2. **User-owned data.** Export is always available; the long-term canonical format will be readable, documented, and Git-friendly.
-3. **One fast path.** Paste cURL or a URL, press Send, inspect the result.
-4. **Honest platform boundaries.** The web app will explain CORS and native gRPC constraints and offer an optional local bridge—not silently proxy secrets through our servers.
-5. **No core paywalls.** REST, environments, scripts, runners, import/export, Git workflows, and the local bridge belong in the open-source edition.
+## What you can do today
 
-## Run it
+- Send REST requests through the browser Fetch API.
+- Copy the visible response body or headers and clear the current response without changing the request.
+- Inspect formatted JSON/XML, safe image previews, raw text/base64, binary metadata, and response headers.
+- Use query params, headers, JSON/raw, URL-encoded form, and multipart text-field bodies with common HTTP methods.
+- Configure No Auth, Bearer/JWT, Basic Auth, or API Key authorization per request, including environment-variable values.
+- Paste a URL or cURL command into the URL bar and let the app fill the request, including Bearer/Basic authorization and form fields.
+- Keep URL query parameters and the Params editor synchronized in both directions.
+- See generated Content-Type/Auth values and authorization conflicts before sending.
+- Keep drafted bodies when switching methods while clearly preventing GET/HEAD from sending them.
+- Save local collections, nested folder paths, and recent history.
+- Start with the bundled public API example collection.
+- Use environment-tagged variables with isolated values, `{{variable}}` substitution, built-ins, and secret masking.
+- Run basic safe scripts for assertions, temporary request changes, and response capture.
+- Export collections/subcollections as versioned JSON.
+- Install as a PWA on supported desktop and mobile browsers.
+- Switch dark/light theme.
+- Enable optional Google, GitHub, email/password, or email link login when auth is configured.
 
-Requires Node.js 22 or newer.
+## Install locally
+
+Prerequisites:
+
+- Node.js `22.12+` recommended. Vite also supports `20.19+`.
+- npm, included with Node.js.
+- Git, only if you are cloning from GitHub.
+
+From this workspace:
 
 ```bash
+cd /Users/VaibhavAgarwal/AI
 npm install
 npm run dev
 ```
 
-Build and verify:
+Open `http://localhost:5173`.
+
+For a fresh clone later:
+
+```bash
+git clone git@github-personal:avaibhav51/OpenRequest.git
+cd OpenRequest
+npm install
+npm run dev
+```
+
+Useful commands:
 
 ```bash
 npm test
 npm run build
+npm run preview
 ```
 
-All saved data is in the current browser's IndexedDB database named `open-request-workbench`. Clearing site data removes it, so export important collections until file-backed workspaces land.
+Local app data is stored in the current browser profile, mainly in IndexedDB database `open-request-workbench`. Clearing site data removes it, so export anything important.
 
-## What exists today
+## Use from a phone or another laptop
 
-- REST requests through the browser Fetch API
-- Query parameters, headers, JSON/raw bodies
-- Environment-tagged variables with isolated values, secret masking, and `{{variable}}` substitution
-- Safe basic pre-request and post-response scripts with assertions and response capture
-- Response status, timing, size, headers, and formatted JSON
-- cURL import and copy-as-cURL
-- Automatic cURL detection when pasted directly into the URL field
-- Local collections, folder-path metadata, and recent history
-- A bundled public API example collection, seeded once on first use
-- Collection export in a versioned JSON envelope
-- Offline/installable PWA shell
-- Responsive phone/tablet/desktop interface
-- Dark/light mode
-- Explicit CORS/browser-limit messaging
-- In-app quick reference for HTTP methods, variables, scripts, and common workflows
-- Optional Google, GitHub, email/password, email link/code, and phone OTP authentication through a configured hosted or self-hosted Supabase Auth instance
+For quick testing on the same Wi-Fi network:
 
-## Read next
+```bash
+npm run dev -- --host 0.0.0.0
+```
+
+Find your laptop IP:
+
+```bash
+ipconfig getifaddr en0
+```
+
+Then open `http://YOUR_LAPTOP_IP:5173` on the phone or second laptop.
+
+Notes:
+
+- Local network HTTP is good for testing, but it is not a secure public deployment.
+- Installable PWA behavior requires HTTPS, or local development on `localhost` / `127.0.0.1`. MDN documents this requirement in its [PWA installability guide](https://developer.mozilla.org/en-US/docs/Web/Progressive_web_apps/Guides/Making_PWAs_installable).
+- On Android, use Chrome's install/add-to-home-screen option when available.
+- On iOS, open in Safari and use Share -> Add to Home Screen.
+
+## Use without hosting it yourself
+
+You can publish the static PWA for free on services such as GitHub Pages or Cloudflare Pages. The app still stores each user's data in their own browser unless optional sync is built later.
+
+Recommended free paths:
+
+- GitHub Pages: best when the code is already on personal GitHub.
+- Cloudflare Pages: good static hosting, custom domains optional.
+- Any static host: serve the `dist/` folder after `npm run build`.
+
+Full instructions are in [Deployment](docs/DEPLOYMENT.md).
+
+## Login and auth
+
+Login is optional. Without auth, the app works locally and stores data in the browser.
+
+To enable the sign-in modal, copy `.env.example` to `.env.local` and set:
+
+```dotenv
+VITE_SUPABASE_URL=https://YOUR_PROJECT.supabase.co
+VITE_SUPABASE_ANON_KEY=YOUR_PUBLIC_ANON_OR_PUBLISHABLE_KEY
+```
+
+Then configure the providers in Supabase Auth and restart the dev server.
+
+Read:
+
+- [Optional authentication setup](docs/AUTH_SETUP.md)
+- [Auth data, storage, and costs](docs/AUTH_DATA_AND_COSTS.md)
+
+Important short version:
+
+- Google, GitHub, and email auth can usually be tested on free tiers.
+- Phone/SMS OTP is intentionally not included because reliable delivery normally needs a paid provider and abuse controls.
+- Passwords are not stored in this frontend app. Supabase stores password hashes in its Auth database.
+- API secrets that you type into variables are currently only browser-local and masked, not encrypted at rest.
+
+## Request authorization
+
+Open a request's **Auth** tab and choose:
+
+- **No Auth** — adds no credential.
+- **Bearer Token / JWT** — sends `Authorization: Bearer …`.
+- **Basic Auth** — safely encodes a username and password as an HTTP Basic header.
+- **API Key** — adds a custom key to either a request header or query parameter.
+
+Every credential field supports `{{variableName}}`. Prefer secret environment variables instead of saving a literal credential inside a request, especially before exporting a collection. Copying a request as cURL includes its configured authorization.
+
+## Project docs
 
 - [Product research and prioritized roadmap](docs/PRODUCT_PLAN.md)
 - [Architecture and security boundaries](docs/ARCHITECTURE.md)
 - [Technology decisions and future Java backend](docs/TECHNOLOGY_DECISIONS.md)
+- [Future local companion service for CORS and native protocols](docs/COMPANION_SERVICE_PLAN.md)
+- [Future API performance and load-testing support](docs/PERFORMANCE_LOAD_TESTING_PLAN.md)
+- [Request editor synchronization priorities](docs/REQUEST_EDITOR_SYNC_PLAN.md)
+- [Deployment](docs/DEPLOYMENT.md)
+- [Auth data, storage, and costs](docs/AUTH_DATA_AND_COSTS.md)
 - [Personal GitHub setup without global Git changes](docs/PERSONAL_GITHUB.md)
-- [Optional authentication setup](docs/AUTH_SETUP.md)
 - [Contributing](CONTRIBUTING.md)
 - [Security policy](SECURITY.md)
 

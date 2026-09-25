@@ -5,7 +5,14 @@ export interface KeyValue {
   key: string
   value: string
   enabled: boolean
+  source?: 'generated'
 }
+
+export type RequestAuth =
+  | { type: 'none' }
+  | { type: 'bearer'; token: string }
+  | { type: 'basic'; username: string; password: string }
+  | { type: 'api-key'; key: string; value: string; location: 'header' | 'query' }
 
 export interface RequestDraft {
   id: string
@@ -15,7 +22,9 @@ export interface RequestDraft {
   headers: KeyValue[]
   params: KeyValue[]
   body: string
-  bodyType: 'none' | 'json' | 'text'
+  bodyType: 'none' | 'json' | 'text' | 'form' | 'multipart'
+  bodyFields?: KeyValue[]
+  auth?: RequestAuth
   preRequestScript: string
   postResponseScript: string
   collectionId?: string
@@ -54,6 +63,7 @@ export interface ResponseSnapshot {
   sizeBytes: number
   headers: KeyValue[]
   body: string
+  bodyEncoding?: 'text' | 'base64'
   contentType: string
   requestedAt: number
   scriptLogs?: string[]
@@ -80,6 +90,8 @@ export const newRequest = (): RequestDraft => ({
   params: [emptyPair()],
   body: '',
   bodyType: 'none',
+  bodyFields: [emptyPair()],
+  auth: { type: 'none' },
   preRequestScript: '',
   postResponseScript: '',
   updatedAt: Date.now()

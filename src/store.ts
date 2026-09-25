@@ -2,6 +2,7 @@ import { create } from 'zustand'
 import { db } from './db'
 import { newRequest, uid, type Collection, type Environment, type HistoryEntry, type RequestDraft, type ResponseSnapshot, type WorkspaceVariable } from './types'
 import defaultCollection from './data/default-collection.json'
+import { hydrateLegacyQueryParams } from './lib/queryParams'
 
 interface AppState {
   collections: Collection[]
@@ -66,7 +67,7 @@ export const useAppStore = create<AppState>((set, get) => ({
     set({ collections, requests, history, environments, variables, activeEnvironmentId, hydrated: true })
   },
   updateDraft: (patch) => set(({ draft }) => ({ draft: { ...draft, ...patch, updatedAt: Date.now() } })),
-  selectRequest: (request) => set({ draft: structuredClone(request), response: undefined, error: undefined }),
+  selectRequest: (request) => set({ draft: structuredClone(hydrateLegacyQueryParams(request)), response: undefined, error: undefined }),
   saveDraft: async () => {
     const draft = { ...get().draft, name: get().draft.name.trim() || 'Untitled request', updatedAt: Date.now() }
     await db.requests.put(draft)
