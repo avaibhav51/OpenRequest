@@ -2,14 +2,10 @@ import { useState } from 'react'
 import { Github, KeyRound, LogOut, Mail, MessageSquareText, ShieldCheck, X } from 'lucide-react'
 import { authClient, authConfigured, type AuthUser } from '../lib/auth'
 
-type EmailMode = 'sign-in' | 'sign-up'
-
 const authRedirectUrl = new URL(import.meta.env.BASE_URL, window.location.origin).href
 
 export function AuthModal({ user, close }: { user: AuthUser | null; close: () => void }) {
-  const [emailMode, setEmailMode] = useState<EmailMode>('sign-in')
   const [email, setEmail] = useState('')
-  const [password, setPassword] = useState('')
   const [busy, setBusy] = useState('')
   const [message, setMessage] = useState('')
   const [error, setError] = useState('')
@@ -30,15 +26,6 @@ export function AuthModal({ user, close }: { user: AuthUser | null; close: () =>
     const { error } = await authClient.auth.signInWithOAuth({ provider, options: { redirectTo: authRedirectUrl } })
     if (error) { setError(error.message); setBusy('') }
   }
-  const submitPassword = () => {
-    const client = authClient
-    if (!client || !email || !password) return
-    const action = emailMode === 'sign-in'
-      ? () => client.auth.signInWithPassword({ email, password })
-      : () => client.auth.signUp({ email, password, options: { emailRedirectTo: authRedirectUrl } })
-    run('password', action, emailMode === 'sign-in' ? 'Signed in.' : 'Account created. Check your email if confirmation is enabled.')
-  }
-
   return <div className="modal-backdrop" onMouseDown={(event) => event.target === event.currentTarget && close()}>
     <section className="modal auth-modal" role="dialog" aria-modal="true" aria-label="Experimental account access">
       <header><div><KeyRound /><div><h2>{user ? 'Experimental account' : 'Experimental account access'}</h2><p>Authentication only—cross-device sync is not available yet.</p></div></div><button className="icon-button" onClick={close}><X /></button></header>
@@ -55,11 +42,8 @@ export function AuthModal({ user, close }: { user: AuthUser | null; close: () =>
           <div className="modal-actions"><span className="docs-pointer">See <code>docs/AUTH_SETUP.md</code></span><button className="primary" onClick={close}>Continue locally</button></div>
         </> : <>
           <div className="provider-grid"><button onClick={() => oauth('google')} disabled={Boolean(busy)}><span className="google-mark">G</span> Continue with Google</button><button onClick={() => oauth('github')} disabled={Boolean(busy)}><Github size={16} /> Continue with GitHub</button></div>
-          <div className="auth-divider"><span>or use email</span></div>
-          <div className="email-mode"><button className={emailMode === 'sign-in' ? 'active' : ''} onClick={() => setEmailMode('sign-in')}>Sign in</button><button className={emailMode === 'sign-up' ? 'active' : ''} onClick={() => setEmailMode('sign-up')}>Create account</button></div>
+          <div className="auth-divider"><span>or use an email link</span></div>
           <label>Email<input type="email" autoComplete="email" value={email} onChange={(event) => setEmail(event.target.value)} placeholder="you@example.com" /></label>
-          <label>Password<input type="password" autoComplete={emailMode === 'sign-in' ? 'current-password' : 'new-password'} value={password} onChange={(event) => setPassword(event.target.value)} placeholder="At least 8 characters" /></label>
-          <button className="auth-primary" onClick={submitPassword} disabled={Boolean(busy) || !email || !password}><Mail size={15} /> {emailMode === 'sign-in' ? 'Sign in with email' : 'Create email account'}</button>
           <button className="auth-secondary" onClick={() => authClient && run('magic', () => authClient!.auth.signInWithOtp({ email, options: { emailRedirectTo: authRedirectUrl } }), 'Check your email for the sign-in link.')} disabled={Boolean(busy) || !email}><MessageSquareText size={15} /> Send email sign-in link</button>
           {message && <p className="auth-message ok">{message}</p>}{error && <p className="auth-message bad">{error}</p>}
           <p className="auth-note">Your local collections stay local. Account sync is not enabled yet.</p>

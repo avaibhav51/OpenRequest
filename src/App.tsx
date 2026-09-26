@@ -21,6 +21,8 @@ type EditorTab = 'params' | 'headers' | 'auth' | 'body' | 'scripts'
 type ResponseTab = 'body' | 'raw' | 'headers'
 type Modal = 'curl' | 'save' | 'settings' | 'variables' | 'help' | 'auth' | null
 
+const appMarkUrl = `${import.meta.env.BASE_URL}mark.svg`
+
 const download = (filename: string, value: unknown) => {
   const url = URL.createObjectURL(new Blob([JSON.stringify(value, null, 2)], { type: 'application/json' }))
   const anchor = document.createElement('a')
@@ -101,7 +103,7 @@ function Sidebar({ open, close }: { open: boolean; close: () => void }) {
   }
 
   return <aside className={`sidebar ${open ? 'open' : ''}`}>
-    <div className="brand"><img src="/mark.svg" alt="" /><span>OpenRequest</span><button className="icon-button mobile-only" onClick={close}><X size={18} /></button></div>
+    <div className="brand"><img src={appMarkUrl} alt="" /><span>OpenRequest</span><button className="icon-button mobile-only" onClick={close}><X size={18} /></button></div>
     <div className="side-tabs">
       <button className={section === 'collections' ? 'active' : ''} onClick={() => setSection('collections')}><Archive size={16} /> Collections</button>
       <button className={section === 'history' ? 'active' : ''} onClick={() => setSection('history')}><History size={16} /> History</button>

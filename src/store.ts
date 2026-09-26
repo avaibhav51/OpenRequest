@@ -56,6 +56,19 @@ export const useAppStore = create<AppState>((set, get) => ({
       }
       localStorage.setItem('default-collection-seeded-v1', 'yes')
     }
+    if (localStorage.getItem('default-naas-seeded-v1') !== 'yes') {
+      const seed = defaultCollection as { collection: Collection; requests: RequestDraft[] }
+      const naas = seed.requests.find((request) => request.name === 'naas')
+      if (naas && !requests.some((request) => request.id === naas.id)) {
+        if (!collections.some((collection) => collection.id === seed.collection.id)) {
+          await db.collections.put(seed.collection)
+          collections = [...collections, seed.collection]
+        }
+        await db.requests.put(naas)
+        requests = [naas, ...requests]
+      }
+      localStorage.setItem('default-naas-seeded-v1', 'yes')
+    }
     let environments = storedEnvironments
     if (!environments.length) {
       const local: Environment = { id: uid(), name: 'Local', color: '#8eb51d', createdAt: Date.now() }

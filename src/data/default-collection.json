@@ -9,6 +9,35 @@
   },
   "requests": [
     {
+      "id": "ef42ef7e-d6a2-4c72-93d7-5d6b87c66dde",
+      "name": "naas",
+      "method": "GET",
+      "url": "https://naas.isalman.dev/no",
+      "headers": [
+        {
+          "id": "e085463d-f979-4b26-b045-58c9a3acf235",
+          "key": "",
+          "value": "",
+          "enabled": true
+        }
+      ],
+      "params": [
+        {
+          "id": "ee9ff177-d67a-4ac6-bfbf-b1ea8aa04df0",
+          "key": "",
+          "value": "",
+          "enabled": true
+        }
+      ],
+      "body": "",
+      "bodyType": "none",
+      "preRequestScript": "",
+      "postResponseScript": "",
+      "updatedAt": 1790352000000,
+      "collectionId": "f4067883-6a0e-4baf-bb29-c879fa45cc87",
+      "folderPath": []
+    },
+    {
       "id": "2d582abb-d03d-4dc6-a13d-f5ad9a4b1978",
       "name": "hp-spells",
       "method": "GET",

@@ -90,10 +90,17 @@ Its deferred-update queue currently contains two scoped items: the complete brow
 ### Identity and sync
 
 - **[M0 Must]** No identity in local mode. Device data is usable indefinitely without signup.
-- **[M1 Should] [Optional service]** Google and GitHub OAuth; email/password; email code/link. Use standards-based adapters so self-hosters can choose their own OpenID Connect provider.
+- **[M1 Should] [Optional service]** Google and GitHub OAuth; email code/link; complete email/password signup and recovery as one deliverable. Use standards-based adapters so self-hosters can choose their own OpenID Connect provider.
 - **[M1 Should] [Optional service]** End-to-end encrypted workspace sync: encrypt on device; server stores ciphertext; recovery key belongs to the user. Exclude active secrets by default.
 - **[M2 Later] [Optional service]** Passkeys, device pairing, shared encrypted workspaces, append-only revision log.
 - **[Out of scope]** Mobile SMS OTP. Reliable delivery is a metered telecom service and abuse target, so it is deliberately excluded from the reference app. Prefer email links, passkeys/TOTP, or OAuth.
+
+Near-future prerequisites, to surface when choosing the next work item:
+
+- **[M1 Should]** Test Supabase Auth without storing application data: email signup/sign-in/sign-out, confirmation, magic link, password recovery, Google/GitHub callbacks, expired links, invalid redirects, and session restoration.
+- **[M1 Should]** Add email/password signup, sign-in, forgot-password/recovery, confirmation/error handling, and tests together; do not expose a partial password flow. Follow the deferred implementation section in [Auth setup](AUTH_SETUP.md#deferred-emailpassword-implementation).
+- **[M1 Should] [Optional service]** Design encrypted synchronization and RLS together before claiming that login backs up user work. See [Encrypted sync plan](ENCRYPTED_SYNC_PLAN.md).
+- **[M0 Must]** Introduce the reusable browser regression framework described in [Regression testing plan](REGRESSION_TESTING_PLAN.md); automate local mode first and keep live-provider Auth tests in a separately configured suite.
 
 ## Delivery roadmap
 

@@ -11,8 +11,8 @@ This project is designed so login is optional. Local mode works without any iden
 | Secret variables | Browser IndexedDB, visually masked, excluded from normal collection export | Same today |
 | Supabase URL and anon key | Not used | `.env.local` during development or public frontend build variables in hosting |
 | Browser session | Not used | Supabase access and refresh tokens in browser storage |
-| Email/password credentials | Not used | Sent over HTTPS to Supabase Auth; not stored by this frontend |
-| Password storage | Not used | Supabase stores salted bcrypt password hashes in `auth.users.encrypted_password`, not plaintext |
+| Email/password credentials | Not currently exposed | When the complete signup/recovery flow is added, credentials will be sent over HTTPS to Supabase Auth and not stored by this frontend |
+| Password storage | Not currently used by the UI | A future complete password flow would rely on Supabase's salted password hashes in `auth.users.encrypted_password`, never plaintext frontend storage |
 | Email and user identity metadata | Not used | Supabase Auth database `auth` schema |
 | Google/GitHub OAuth secrets | Not used | Stored in Supabase/provider configuration, not in this frontend repository |
 | SMTP provider credentials | Not used | Supabase hosted project settings or self-hosted server environment |

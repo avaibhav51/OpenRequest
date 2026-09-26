@@ -90,9 +90,13 @@ Optional auth variables can be added as repository variables:
 - `VITE_SUPABASE_URL`
 - `VITE_SUPABASE_ANON_KEY`
 
+The official OpenRequest deployment intentionally leaves both unset until hosted sync has an operational owner. Forks and self-hosted deployments may set their own project values. If unset, the application stays local-only and does not initialize Supabase.
+
 These values are public frontend configuration. Do not add service-role keys, OAuth client secrets, SMTP passwords, or SMS provider credentials to frontend build variables.
 
 Add them at **Repository -> Settings -> Secrets and variables -> Actions -> Variables -> New repository variable**. They are injected when GitHub Actions builds the frontend, so changing one requires another deployment. Every visitor receives the same public project URL and publishable key; individual identity and access come from the user's Supabase session, not from hiding this key.
+
+The publishable/anon key is intentionally inspectable in the browser. Never substitute a Supabase secret or `service_role` key: those can bypass Row Level Security. The current application uses Supabase only for Auth and has no sync tables. Before future sync is deployed, every application table must enable tested RLS policies that restrict rows to the authenticated workspace owner, and workspace content must be encrypted in the browser before upload. See [Optional authentication setup](AUTH_SETUP.md) and [Future encrypted synchronization and RLS](ENCRYPTED_SYNC_PLAN.md).
 
 ## Cloudflare Pages
 

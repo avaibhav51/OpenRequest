@@ -24,7 +24,7 @@ The current app is a React/Vite PWA. It stores data in your browser by default a
 - Export collections/subcollections as versioned JSON.
 - Install the production build as a PWA on supported desktop and mobile browsers. The normal Vite development server is not an installability test.
 - Switch dark/light theme.
-- Enable optional Google, GitHub, email/password, or email link login when auth is configured.
+- Enable optional Google, GitHub, or email-link login when auth is configured. Password login remains deferred until complete recovery support exists.
 
 ## Install locally
 
@@ -120,6 +120,8 @@ VITE_SUPABASE_ANON_KEY=YOUR_PUBLIC_ANON_OR_PUBLISHABLE_KEY
 
 Then configure the providers in Supabase Auth and restart the dev server. Adding the URL and public key connects the frontend to the project; it does not automatically configure Google/GitHub OAuth, production email delivery, redirects, CAPTCHA, or future collection sync.
 
+For hosted builds, the deployer supplies these two public values once as hosting build variables; individual users do not provide them. Self-hosters who want their own independent login/sync service supply values from their own Supabase project. The official OpenRequest deployment intentionally omits these variables for now, so it remains local-only and exposes no shared Supabase project to misuse. The current login adapter is experimental and does not upload local data.
+
 Read:
 
 - [Optional authentication setup](docs/AUTH_SETUP.md)
@@ -129,7 +131,7 @@ Important short version:
 
 - Google, GitHub, and email auth can usually be tested on free tiers.
 - Phone/SMS OTP is intentionally not included because reliable delivery normally needs a paid provider and abuse controls.
-- Passwords are not stored in this frontend app. Supabase stores password hashes in its Auth database.
+- Password login is not exposed yet; it remains deferred until signup, recovery, expired-link handling, and regression tests ship together. When enabled later, passwords will be handled by Supabase Auth rather than stored in this frontend.
 - The Supabase URL and publishable/anon key are public application identifiers, not administrator credentials. Protect future database tables with Row Level Security and never expose a secret/service-role key.
 - API secrets that you type into variables are currently only browser-local and masked, not encrypted at rest.
 
@@ -154,6 +156,8 @@ Every credential field supports `{{variableName}}`. Prefer secret environment va
 - [Request editor synchronization priorities](docs/REQUEST_EDITOR_SYNC_PLAN.md)
 - [Deployment](docs/DEPLOYMENT.md)
 - [Auth data, storage, and costs](docs/AUTH_DATA_AND_COSTS.md)
+- [Future encrypted synchronization and RLS](docs/ENCRYPTED_SYNC_PLAN.md)
+- [Reusable browser regression testing plan](docs/REGRESSION_TESTING_PLAN.md)
 - [Personal GitHub setup without global Git changes](docs/PERSONAL_GITHUB.md)
 - [Contributing](CONTRIBUTING.md)
 - [Security policy](SECURITY.md)
