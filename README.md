@@ -10,10 +10,12 @@ The current app is a React/Vite PWA. It stores data in your browser by default a
 
 - Send REST requests through the browser Fetch API.
 - Copy the visible response body or headers and clear the current response without changing the request.
+- Resize the request/response split horizontally on desktop or vertically on tablet/mobile; drag the divider, use arrow keys, or double-click/press Home to reset it.
 - Inspect formatted JSON/XML, safe image previews, raw text/base64, binary metadata, and response headers.
 - Use query params, headers, JSON/raw, URL-encoded form, and multipart text-field bodies with common HTTP methods.
 - Configure No Auth, Bearer/JWT, Basic Auth, or API Key authorization per request, including environment-variable values.
 - Paste a URL or cURL command into the URL bar and let the app fill the request, including Bearer/Basic authorization and form fields.
+- Inspect protocol, host/port, path, endpoint, recognized path placeholders, and query keys/values through a subtle theme-aware URL-details popover shown on field hover/focus or from its details button.
 - Keep URL query parameters and the Params editor synchronized in both directions.
 - See generated Content-Type/Auth values and authorization conflicts before sending.
 - Keep drafted bodies when switching methods while clearly preventing GET/HEAD from sending them.
@@ -24,6 +26,7 @@ The current app is a React/Vite PWA. It stores data in your browser by default a
 - Export collections/subcollections as versioned JSON.
 - Install the production build as a PWA on supported desktop and mobile browsers. The normal Vite development server is not an installability test.
 - Switch dark/light theme.
+- Keep the empty workspace and mobile sidebar within the visible PWA viewport, with panel/sidebar content scrolling internally when needed.
 - Enable optional Google, GitHub, or email-link login when auth is configured. Password login remains deferred until complete recovery support exists.
 
 ## Install locally
@@ -68,7 +71,11 @@ Useful commands:
 npm test
 npm run build
 npm run preview
+npx playwright install chromium webkit  # once per development machine
+npm run test:e2e
 ```
+
+`test:e2e` builds the production PWA at the same `/OpenRequest/` subpath used by GitHub Pages, starts a deterministic local fixture server, and runs Chromium, WebKit, and a mobile Chromium profile. It does not call public demo APIs or require Supabase credentials. Failure artifacts are written to the ignored `playwright-report/` and `test-results/` directories.
 
 Local app data is stored in the current browser profile, mainly in IndexedDB database `open-request-workbench`. Clearing site data removes it, so export anything important.
 

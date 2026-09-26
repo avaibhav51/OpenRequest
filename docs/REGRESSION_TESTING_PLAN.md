@@ -2,7 +2,15 @@
 
 ## Status
 
-Near-future priority. The existing Vitest suite covers pure request-processing logic, but it does not drive the application as a user or verify browser storage, deployment paths, PWA metadata, and authentication flows.
+Foundation implemented. The Vitest suite covers pure request-processing logic, while Playwright now drives the production build in Chromium, WebKit, and a mobile Chromium profile. The deterministic suite verifies the `/OpenRequest/` deployment path, bundled logo/default collection, URL/Params synchronization, request/response flow, response clearing, IndexedDB persistence, theme persistence, PWA manifest, and Chromium service-worker registration.
+
+Responsive regressions also exercise empty tablet/mobile portrait workspaces, assert that the document does not exceed the visible viewport, verify that the mobile sidebar footer remains reachable, and confirm keyboard resizing of the stacked request/response divider.
+
+Minimum-pane coverage verifies that the editor tab strip can horizontally reveal the selected Scripts tab and that the Before Request/After Response editors never overlap when the request pane is resized to its minimum height; the editor content scrolls internally instead.
+
+URL-details coverage verifies that no persistent duplicate URL consumes editor space, while focus/hover or the touch-accessible details button reveals protocol, host/port, path-parameter placeholder, endpoint, query-key, and query-value segmentation. It also confirms that light/dark palettes differ and the original editable URL remains unchanged.
+
+The test-only Node server mounts `dist` at `/OpenRequest/` and provides a same-origin fixture API, so ordinary regression runs do not depend on public APIs, accounts, email delivery, or Supabase. GitHub Actions installs the browsers, runs the suite, and retains the HTML report plus failure screenshots, video, and traces.
 
 ## Recommended framework
 
@@ -54,18 +62,20 @@ Keep live credentials in protected CI secrets, never in source or browser-facing
 
 ## Implementation sequence
 
-1. Add Playwright and a `test:e2e` command.
-2. Start the production preview automatically on a test port.
-3. Add stable accessible selectors only where role/label queries are insufficient.
-4. Cover one critical happy path and persistence after reload.
-5. Add mocked error/edge cases and mobile projects.
-6. Add a GitHub Actions job with trace/screenshot artifacts on failure.
+1. **Done:** Add Playwright and a `test:e2e` command.
+2. **Done:** Build and mount the production output at the GitHub Pages subpath on a test port.
+3. **Done:** Use accessible roles/labels and add an accessible mobile-menu/save-dialog name where required.
+4. **Done:** Cover a critical request happy path and persistence after reload.
+5. **Started:** Add a mobile project; mocked error and edge cases remain.
+6. **Done:** Add a GitHub Actions job with report/trace/screenshot/video artifacts on failure.
 7. Introduce a separately gated live-auth project.
+
+Next additions should cover cURL import, authorization/body combinations, variables/scripts, collection export/import, offline reload, keyboard/accessibility checks, and mocked Auth contract states. Live Supabase tests remain separately gated.
 
 ## Completion criteria
 
-- One command runs deterministic regression tests locally.
-- Pull requests test the production build in at least Chromium and WebKit.
-- Failures retain useful traces/screenshots.
-- Tests require no personal account or manual clicks.
+- **Met:** One command runs deterministic regression tests locally.
+- **Met:** Pull requests test the production build in Chromium and WebKit.
+- **Met:** Failures retain useful reports, traces, screenshots, and video.
+- **Met:** Deterministic tests require no personal account or manual clicks.
 - External-provider tests are isolated, clearly configured, and optional for contributors.

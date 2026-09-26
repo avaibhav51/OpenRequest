@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type ClipboardEvent } from 'react'
+import { useEffect, useMemo, useState, type ClipboardEvent, type CSSProperties, type KeyboardEvent, type PointerEvent } from 'react'
 import {
   Archive, Braces, ChevronDown, ChevronRight, CircleHelp, ClipboardPaste, Clock3, Code2, Copy, Download,
   Folder, History, KeyRound, LogIn, Menu, Moon, Plus, Save, Send, Settings, Sun, Tags, Trash2, UserRound, X
@@ -45,6 +45,46 @@ const formatXml = (value: string) => {
       return formatted
     }).join('\n')
   } catch { return value }
+}
+
+function UrlDetails({ value }: { value: string }) {
+  const match = value.trim().match(/^([a-z][a-z\d+.-]*:\/\/)([^/?#\s]+)([^?#\s]*)(\?[^#\s]*)?(#\S*)?$/i)
+  if (!match) return null
+  const [, protocol, authority, pathname, query = '', fragment = ''] = match
+  const pathSegments = pathname.split('/')
+  const lastPathIndex = pathSegments.reduce((last, segment, index) => segment ? index : last, -1)
+  const isPathParameter = (segment: string) => /^(?:\{\{[^}]+\}\}|\{[^}]+\}|:[A-Za-z_][\w-]*)$/.test(segment)
+  const queryParts = query.slice(1).split('&').filter(Boolean)
+
+  return <>
+    <button className="url-details-trigger" type="button" aria-label="Show URL details" title="Show URL details"><Code2 size={13} /></button>
+    <div className="url-details" role="tooltip">
+      <Code2 size={12} />
+      <code>
+      <span className="url-protocol" title="Protocol">{protocol}</span>
+      <span className="url-authority" title="Domain / host and port">{authority}</span>
+      {pathSegments.map((segment, index) => <span key={`path-${index}`}>
+        {index > 0 && <span className="url-punctuation">/</span>}
+        {segment && <span
+          className={isPathParameter(segment) ? 'url-path-param' : index === lastPathIndex ? 'url-endpoint' : 'url-path'}
+          title={isPathParameter(segment) ? 'Path parameter' : index === lastPathIndex ? 'Endpoint' : 'Path'}
+        >{segment}</span>}
+      </span>)}
+      {queryParts.length > 0 && <span className="url-punctuation">?</span>}
+      {queryParts.map((part, index) => {
+        const equals = part.indexOf('=')
+        const key = equals < 0 ? part : part.slice(0, equals)
+        const queryValue = equals < 0 ? '' : part.slice(equals + 1)
+        return <span key={`query-${index}`}>
+          {index > 0 && <span className="url-punctuation">&amp;</span>}
+          <span className="url-query-key" title="Query parameter key">{key}</span>
+          {equals >= 0 && <><span className="url-punctuation">=</span><span className="url-query-value" title="Query parameter value">{queryValue}</span></>}
+        </span>
+      })}
+      {fragment && <span className="url-fragment" title="Fragment">{fragment}</span>}
+      </code>
+    </div>
+  </>
 }
 
 function PairEditor({ value, onChange, generated = [], disabled = false }: { value: KeyValue[]; onChange: (value: KeyValue[]) => void; generated?: KeyValue[]; disabled?: boolean }) {
@@ -154,7 +194,7 @@ function ModalPanel({ modal, close }: { modal: 'curl' | 'save' | 'settings'; clo
     await saveDraft(); close()
   }
   return <div className="modal-backdrop" onMouseDown={(event) => event.target === event.currentTarget && close()}>
-    <section className="modal" role="dialog" aria-modal="true">
+    <section className="modal" role="dialog" aria-modal="true" aria-label={modal === 'curl' ? 'Import cURL' : modal === 'save' ? 'Save request' : 'Workspace settings'}>
       <header><div>{modal === 'curl' ? <ClipboardPaste /> : modal === 'save' ? <Save /> : <Settings />}<div><h2>{modal === 'curl' ? 'Import cURL' : modal === 'save' ? 'Save request' : 'Workspace settings'}</h2><p>{modal === 'settings' ? 'This workspace is private by default.' : ''}</p></div></div><button className="icon-button" onClick={close}><X /></button></header>
       {modal === 'curl' && <div className="modal-body"><label>cURL command<textarea autoFocus rows={9} value={curl} onChange={(event) => setCurl(event.target.value)} placeholder="curl 'https://api.example.com/users' \
   -H 'Authorization: Bearer …'" /></label>{message && <p className="error-note">{message}</p>}<div className="modal-actions"><button onClick={close}>Cancel</button><button className="primary" onClick={importCurl}>Import request</button></div></div>}
@@ -176,9 +216,17 @@ function App() {
   const [responseCopied, setResponseCopied] = useState(false)
   const [pasteNotice, setPasteNotice] = useState('')
   const [authUser, setAuthUser] = useState<AuthUser | null>(null)
+  const [splitPercent, setSplitPercent] = useState(42)
+  const [stackedSplit, setStackedSplit] = useState(() => window.matchMedia('(max-width: 1100px)').matches)
 
   useEffect(() => { store.hydrate() }, [])
   useEffect(() => { document.documentElement.dataset.theme = dark ? 'dark' : 'light'; localStorage.setItem('theme', dark ? 'dark' : 'light') }, [dark])
+  useEffect(() => {
+    const media = window.matchMedia('(max-width: 1100px)')
+    const update = () => setStackedSplit(media.matches)
+    media.addEventListener('change', update)
+    return () => media.removeEventListener('change', update)
+  }, [])
   useEffect(() => {
     if (!authClient) return
     authClient.auth.getSession().then(({ data }) => setAuthUser(data.session?.user ?? null))
@@ -270,20 +318,36 @@ function App() {
   }
   const clearResponse = () => store.setResponse(undefined, undefined)
   const responseCopyLabel = responseTab === 'headers' ? 'response headers' : responseTab === 'raw' ? 'raw response' : 'response body'
+  const clampSplit = (value: number) => Math.min(72, Math.max(28, value))
+  const resizeSplit = (event: PointerEvent<HTMLButtonElement>) => {
+    if (!event.currentTarget.hasPointerCapture(event.pointerId)) return
+    const bounds = event.currentTarget.parentElement?.getBoundingClientRect()
+    if (!bounds) return
+    const position = stackedSplit ? event.clientY - bounds.top : event.clientX - bounds.left
+    const size = stackedSplit ? bounds.height : bounds.width
+    setSplitPercent(clampSplit(position / size * 100))
+  }
+  const resizeSplitWithKeyboard = (event: KeyboardEvent<HTMLButtonElement>) => {
+    const decrease = stackedSplit ? event.key === 'ArrowUp' : event.key === 'ArrowLeft'
+    const increase = stackedSplit ? event.key === 'ArrowDown' : event.key === 'ArrowRight'
+    if (!decrease && !increase && event.key !== 'Home') return
+    event.preventDefault()
+    setSplitPercent((current) => event.key === 'Home' ? 42 : clampSplit(current + (increase ? 3 : -3)))
+  }
 
   return <div className="app-shell">
     <Sidebar open={sidebar} close={() => setSidebar(false)} />
     {sidebar && <button className="mobile-scrim" aria-label="Close menu" onClick={() => setSidebar(false)} />}
     <main>
-      <header className="topbar"><button className="icon-button mobile-only" onClick={() => setSidebar(true)}><Menu /></button><div className="mode-label"><span className="status-dot" /> Private workspace</div><div className="top-actions"><button className="environment-switch" onClick={() => setModal('variables')} title="Manage isolated environments"><i style={{ background: activeEnvironment?.color }} /><span>{activeEnvironment?.name ?? 'Variables'}</span><Tags size={14} /></button><button onClick={() => setModal('curl')}><ClipboardPaste size={16} /> <span>Import cURL</span></button><button onClick={copyCurl}><Copy size={16} /> <span>{copied ? 'Copied' : 'Copy cURL'}</span></button><button className="account-button" onClick={() => setModal('auth')} title={authUser ? 'Account' : 'Optional sign in'}>{authUser ? <UserRound size={16} /> : <LogIn size={16} />}<span>{authUser?.email?.split('@')[0] ?? 'Sign in'}</span></button><button className="icon-button" onClick={() => setModal('help')} title="Quick reference"><CircleHelp size={18} /></button><button className="icon-button" onClick={() => setDark(!dark)} title="Toggle theme">{dark ? <Sun size={18} /> : <Moon size={18} />}</button><button className="icon-button" onClick={() => setModal('settings')} title="Settings"><Settings size={18} /></button></div></header>
+      <header className="topbar"><button className="icon-button mobile-only" aria-label="Open menu" onClick={() => setSidebar(true)}><Menu /></button><div className="mode-label"><span className="status-dot" /> Private workspace</div><div className="top-actions"><button className="environment-switch" onClick={() => setModal('variables')} title="Manage isolated environments"><i style={{ background: activeEnvironment?.color }} /><span>{activeEnvironment?.name ?? 'Variables'}</span><Tags size={14} /></button><button onClick={() => setModal('curl')}><ClipboardPaste size={16} /> <span>Import cURL</span></button><button onClick={copyCurl}><Copy size={16} /> <span>{copied ? 'Copied' : 'Copy cURL'}</span></button><button className="account-button" onClick={() => setModal('auth')} title={authUser ? 'Account' : 'Optional sign in'}>{authUser ? <UserRound size={16} /> : <LogIn size={16} />}<span>{authUser?.email?.split('@')[0] ?? 'Sign in'}</span></button><button className="icon-button" onClick={() => setModal('help')} title="Quick reference"><CircleHelp size={18} /></button><button className="icon-button" onClick={() => setDark(!dark)} title="Toggle theme">{dark ? <Sun size={18} /> : <Moon size={18} />}</button><button className="icon-button" onClick={() => setModal('settings')} title="Settings"><Settings size={18} /></button></div></header>
       <section className="workspace">
         <div className="request-title"><input value={draft.name} aria-label="Request name" onChange={(event) => store.updateDraft({ name: event.target.value })} /><div><button onClick={() => store.selectRequest(newRequest())}><Plus size={16} /> New</button><button onClick={() => setModal('save')}><Save size={16} /> Save</button></div></div>
-        <div className="request-bar"><div className="method-control"><select aria-label="HTTP method" className={`method-select ${draft.method.toLowerCase()}`} value={draft.method} onChange={(event) => store.updateDraft({ method: event.target.value as typeof draft.method })}>{['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'HEAD', 'OPTIONS'].map((method) => <option key={method} value={method}>{method}</option>)}</select><ChevronDown size={15} /></div><input aria-label="Request URL" placeholder="Paste a URL or cURL command" value={draft.url} onPaste={pasteIntoUrl} onChange={(event) => updateUrl(event.target.value)} onKeyDown={(event) => event.key === 'Enter' && draft.url && send()} /><button className="send-button" disabled={busy || !draft.url} onClick={send}>{busy ? <span className="spinner" /> : <Send size={17} />}{busy ? 'Sending' : 'Send'}</button></div>
+        <div className="request-bar"><div className="method-control"><select aria-label="HTTP method" className={`method-select ${draft.method.toLowerCase()}`} value={draft.method} onChange={(event) => store.updateDraft({ method: event.target.value as typeof draft.method })}>{['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'HEAD', 'OPTIONS'].map((method) => <option key={method} value={method}>{method}</option>)}</select><ChevronDown size={15} /></div><div className="url-input-wrap"><input aria-label="Request URL" placeholder="Paste a URL or cURL command" value={draft.url} onPaste={pasteIntoUrl} onChange={(event) => updateUrl(event.target.value)} onKeyDown={(event) => event.key === 'Enter' && draft.url && send()} /><UrlDetails value={draft.url} /></div><button className="send-button" disabled={busy || !draft.url} onClick={send}>{busy ? <span className="spinner" /> : <Send size={17} />}{busy ? 'Sending' : 'Send'}</button></div>
         {pasteNotice && <div className="paste-notice"><ClipboardPaste size={13} />{pasteNotice}</div>}
         {(variableReferences.length > 0 || missingVariables.length > 0) && <div className={`variable-usage ${missingVariables.length ? 'has-missing' : ''}`}><Braces size={14} /><span>{variableReferences.length} variable{variableReferences.length === 1 ? '' : 's'} from <b>{activeEnvironment?.name}</b></span>{missingVariables.length > 0 && <button onClick={() => setModal('variables')}>Add missing: {missingVariables.join(', ')}</button>}</div>}
-        <div className="split-view">
+        <div className="split-view" style={{ '--request-pane': `${splitPercent}%` } as CSSProperties}>
           <section className="request-editor panel">
-            <nav className="tabbar">{(['params', 'headers', 'auth', 'body', 'scripts'] as EditorTab[]).map((tab) => <button key={tab} className={editorTab === tab ? 'active' : ''} onClick={() => setEditorTab(tab)}>{tab}<small>{tab === 'params' ? draft.params.filter((p) => p.key).length + generatedParams.length : tab === 'headers' ? draft.headers.filter((p) => p.key).length + generatedHeaders.length : tab === 'auth' ? (draft.auth && draft.auth.type !== 'none' ? '•' : '') : tab === 'body' ? (draft.bodyType !== 'none' ? '•' : '') : ((draft.preRequestScript || draft.postResponseScript) ? '•' : '')}</small></button>)}</nav>
+            <nav className="tabbar">{(['params', 'headers', 'auth', 'body', 'scripts'] as EditorTab[]).map((tab) => <button key={tab} className={editorTab === tab ? 'active' : ''} onClick={(event) => { setEditorTab(tab); event.currentTarget.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'nearest' }) }}>{tab}<small>{tab === 'params' ? draft.params.filter((p) => p.key).length + generatedParams.length : tab === 'headers' ? draft.headers.filter((p) => p.key).length + generatedHeaders.length : tab === 'auth' ? (draft.auth && draft.auth.type !== 'none' ? '•' : '') : tab === 'body' ? (draft.bodyType !== 'none' ? '•' : '') : ((draft.preRequestScript || draft.postResponseScript) ? '•' : '')}</small></button>)}</nav>
             <div className="editor-content">
               {editorTab === 'params' && <PairEditor value={draft.params} onChange={updateParams} generated={generatedParams} />}
               {editorTab === 'headers' && <PairEditor value={draft.headers} onChange={updateHeaders} generated={generatedHeaders} />}
@@ -292,6 +356,21 @@ function App() {
               {editorTab === 'scripts' && <div className="script-editor"><div className="script-intro"><Braces size={16} /><span>Safe basic commands only. Open <button onClick={() => setModal('help')}>Quick reference</button> for examples.</span></div><label><span>Before request</span><textarea spellCheck={false} value={draft.preRequestScript ?? ''} onChange={(event) => store.updateDraft({ preRequestScript: event.target.value })} placeholder={'variable traceId = {{$randomUUID}}\nheader X-Trace-Id = {{traceId}}'} /></label><label><span>After response</span><textarea spellCheck={false} value={draft.postResponseScript ?? ''} onChange={(event) => store.updateDraft({ postResponseScript: event.target.value })} placeholder={'assert status == 200\ncapture token = json.data.token'} /></label></div>}
             </div>
           </section>
+          <button
+            className="split-resizer"
+            role="separator"
+            aria-label="Resize request and response panels"
+            aria-orientation={stackedSplit ? 'horizontal' : 'vertical'}
+            aria-valuemin={28}
+            aria-valuemax={72}
+            aria-valuenow={Math.round(splitPercent)}
+            title="Drag to resize; double-click or press Home to reset"
+            onDoubleClick={() => setSplitPercent(42)}
+            onKeyDown={resizeSplitWithKeyboard}
+            onPointerDown={(event) => { event.currentTarget.setPointerCapture(event.pointerId); event.preventDefault() }}
+            onPointerMove={resizeSplit}
+            onPointerUp={(event) => event.currentTarget.releasePointerCapture(event.pointerId)}
+          ><span /></button>
           <section className="response-panel panel"><div className="response-head"><nav className="tabbar"><button className={responseTab === 'body' ? 'active' : ''} onClick={() => setResponseTab('body')}>Response</button><button className={responseTab === 'raw' ? 'active' : ''} onClick={() => setResponseTab('raw')}>Raw</button><button className={responseTab === 'headers' ? 'active' : ''} onClick={() => setResponseTab('headers')}>Headers {response && <small>{response.headers.length}</small>}</button></nav>{response && <div className="response-meta"><b className={response.status < 400 ? 'ok' : 'bad'} title={httpStatusTooltip(response.status, response.statusText)} aria-label={httpStatusTooltip(response.status, response.statusText)}>{response.status} {response.statusText}</b><span>{response.durationMs} ms</span><span>{response.sizeBytes < 1024 ? `${response.sizeBytes} B` : `${(response.sizeBytes / 1024).toFixed(1)} KB`}</span><div className="response-actions"><button onClick={copyResponse} title={responseCopied ? 'Copied' : `Copy ${responseCopyLabel}`} aria-label={responseCopied ? 'Response copied' : `Copy ${responseCopyLabel}`}><Copy size={13} /></button><button onClick={clearResponse} title="Clear response" aria-label="Clear response"><X size={14} /></button></div></div>}</div>{response?.scriptError && <div className="script-banner bad"><b>Script failed</b><span>{response.scriptError}</span></div>}{response?.scriptLogs && response.scriptLogs.length > 0 && !response.scriptError && <div className="script-banner ok"><b>Scripts passed</b><span>{response.scriptLogs.join(' · ')}</span></div>}<div className="response-content">{error ? <div className="error-state"><div>!</div><h3>Request could not be sent</h3><p>{error}</p></div> : !response ? <div className="response-empty"><Code2 size={30} /><h3>Ready when you are</h3><p>Enter a URL and send a request. Response data stays on this device.</p></div> : responseTab === 'headers' ? <div className="header-list">{response.headers.map((header) => <div key={header.id}><b>{header.key}</b><span>{header.value}</span></div>)}</div> : responseTab === 'raw' ? <pre>{response.body}</pre> : responseIsImage ? <div className="image-preview"><img src={`data:${response.contentType};base64,${response.body}`} alt="API response" /><span>{response.contentType}</span></div> : response.bodyEncoding === 'base64' ? <div className="binary-preview"><Code2 size={28} /><strong>Binary response</strong><span>{response.contentType || 'Unknown content type'} · {response.sizeBytes} bytes</span><p>Use Raw or Copy to access the base64 representation.</p></div> : <pre>{prettyBody}</pre>}</div></section>
         </div>
       </section>
