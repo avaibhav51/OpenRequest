@@ -11,7 +11,7 @@ The current app is a React/Vite PWA. It stores data in your browser by default a
 - Send REST requests through the browser Fetch API.
 - Copy the visible response body or headers and clear the current response without changing the request.
 - Resize the request/response split horizontally on desktop or vertically on tablet/mobile; drag the divider, use arrow keys, or double-click/press Home to reset it.
-- Inspect formatted JSON/XML, safe image previews, raw text/base64, binary metadata, and response headers.
+- Inspect formatted, theme-aware syntax-highlighted JSON/XML, safe image previews, raw text/base64, binary metadata, and response headers.
 - Use query params, headers, JSON/raw, URL-encoded form, and multipart text-field bodies with common HTTP methods.
 - Configure No Auth, Bearer/JWT, Basic Auth, or API Key authorization per request, including environment-variable values.
 - Paste a URL or cURL command into the URL bar and let the app fill the request, including Bearer/Basic authorization and form fields.

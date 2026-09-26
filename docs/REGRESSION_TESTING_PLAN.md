@@ -10,7 +10,7 @@ Minimum-pane coverage verifies that the editor tab strip can horizontally reveal
 
 URL-details coverage verifies that no persistent duplicate URL consumes editor space, while focus/hover or the touch-accessible details button reveals protocol, host/port, path-parameter placeholder, endpoint, query-key, and query-value segmentation. It also confirms that light/dark palettes differ and the original editable URL remains unchanged.
 
-The test-only Node server mounts `dist` at `/OpenRequest/` and provides a same-origin fixture API, so ordinary regression runs do not depend on public APIs, accounts, email delivery, or Supabase. GitHub Actions installs the browsers, runs the suite, and retains the HTML report plus failure screenshots, video, and traces.
+The test-only Node server mounts `dist` at `/OpenRequest/` and provides same-origin JSON and XML fixture APIs. Regression coverage confirms theme-aware tokens in the formatted response and an unchanged, uncolored Raw payload, without depending on public APIs, accounts, email delivery, or Supabase. GitHub Actions installs the browsers, runs the suite, and retains the HTML report plus failure screenshots, video, and traces.
 
 ## Recommended framework
 

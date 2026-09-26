@@ -66,6 +66,7 @@ The current implementation supports multipart text fields. Imported `@file` path
 
 - Keep separate formatted/preview and raw views.
 - Format JSON and XML as text without executing returned content.
+- Apply subtle, theme-aware syntax highlighting to formatted JSON/XML while keeping Raw literal and uncolored.
 - Display images through safe object/data URLs when supported.
 - Identify binary responses and offer raw/base64 copy rather than corrupting them through text decoding.
 - Preserve accurate byte size and content type.

@@ -29,11 +29,24 @@ test('synchronizes URL params, sends a deterministic request, and clears the res
   await page.getByRole('button', { name: 'Send' }).click()
   await expect(page.locator('.response-meta b')).toHaveText('200 OK')
   await expect(page.locator('.response-content')).toContainText('Regression fixture')
+  await expect(page.locator('pre[data-language="json"] .syntax-key').first()).toBeVisible()
+  await expect(page.locator('pre[data-language="json"] .syntax-string').first()).toBeVisible()
   await page.getByRole('button', { name: /Headers/ }).click()
   await expect(page.locator('.header-list')).toContainText('x-openrequest-fixture')
 
   await page.getByRole('button', { name: 'Clear response' }).click()
   await expect(page.getByText('Ready when you are')).toBeVisible()
+})
+
+test('syntax highlights formatted XML while Raw stays literal', async ({ page }) => {
+  await page.getByLabel('Request URL').fill('http://127.0.0.1:4173/OpenRequest/__fixtures/profile.xml')
+  await page.getByRole('button', { name: 'Send' }).click()
+  await expect(page.locator('pre[data-language="xml"] .syntax-tag').first()).toHaveText('profile')
+  await expect(page.locator('pre[data-language="xml"] .syntax-attribute')).toHaveText('id')
+
+  await page.getByRole('button', { name: 'Raw' }).click()
+  await expect(page.locator('.response-content pre')).toHaveText('<profile id="42"><name>Regression fixture</name></profile>')
+  await expect(page.locator('.response-content .syntax-tag')).toHaveCount(0)
 })
 
 test('persists a saved request in IndexedDB across reload', async ({ page }) => {

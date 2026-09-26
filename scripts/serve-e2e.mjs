@@ -30,6 +30,16 @@ const server = createServer(async (request, response) => {
     response.end(body)
     return
   }
+  if (url.pathname === `${mount}__fixtures/profile.xml`) {
+    const body = '<profile id="42"><name>Regression fixture</name></profile>'
+    response.writeHead(200, {
+      'content-length': Buffer.byteLength(body),
+      'content-type': 'application/xml; charset=utf-8',
+      'x-openrequest-fixture': 'true'
+    })
+    response.end(body)
+    return
+  }
   if (url.pathname === '/OpenRequest') {
     response.writeHead(308, { location: mount })
     response.end()
