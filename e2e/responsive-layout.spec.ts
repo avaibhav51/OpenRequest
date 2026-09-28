@@ -37,10 +37,12 @@ test('mobile portrait workspace and sidebar footer stay inside the visible viewp
   await page.goto('./')
   await expectDocumentFitsViewport(page)
 
-  await page.getByRole('button', { name: 'Open menu' }).click()
   const sidebar = page.locator('.sidebar')
+  await expect(sidebar).toHaveCSS('box-shadow', 'none')
+  await page.getByRole('button', { name: 'Open menu' }).click()
   const developerLink = page.getByRole('link', { name: /Vaibhav Agarwal/ })
   await expect(sidebar).toBeVisible()
+  await expect(sidebar).not.toHaveCSS('box-shadow', 'none')
   await expect(developerLink).toBeVisible()
   const bounds = await sidebar.boundingBox()
   expect(bounds!.y + bounds!.height).toBeLessThanOrEqual(844)

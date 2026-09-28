@@ -4,7 +4,7 @@ import { createServer } from 'node:http'
 import { extname, join, normalize } from 'node:path'
 
 const host = '127.0.0.1'
-const port = 4173
+const port = Number(process.env.OPENREQUEST_E2E_PORT ?? 4173)
 const mount = '/OpenRequest/'
 const root = join(process.cwd(), 'dist')
 const types = {

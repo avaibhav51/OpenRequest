@@ -25,7 +25,7 @@ The current app is a React/Vite PWA. It stores data in your browser by default a
 - Run basic safe scripts for assertions, temporary request changes, and response capture.
 - Export collections/subcollections as versioned JSON.
 - Install the production build as a PWA on supported desktop and mobile browsers. The normal Vite development server is not an installability test.
-- Switch dark/light theme.
+- Switch between tuned dark and light themes with persistent preference, a subtle paper-like light reading surface, and readable response syntax colors in both.
 - Keep the empty workspace and mobile sidebar within the visible PWA viewport, with panel/sidebar content scrolling internally when needed.
 - Enable optional Google, GitHub, or email-link login when auth is configured. Password login remains deferred until complete recovery support exists.
 

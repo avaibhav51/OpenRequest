@@ -1,6 +1,6 @@
 import { defineConfig, devices } from '@playwright/test'
 
-const port = 4173
+const port = Number(process.env.OPENREQUEST_E2E_PORT ?? 4173)
 const baseURL = `http://127.0.0.1:${port}/OpenRequest/`
 
 export default defineConfig({

@@ -1,6 +1,7 @@
 import { expect, test } from '@playwright/test'
 
-const apiUrl = 'http://127.0.0.1:4173/OpenRequest/__fixtures/profile?mode=full'
+const e2ePort = Number(process.env.OPENREQUEST_E2E_PORT ?? 4173)
+const apiUrl = `http://127.0.0.1:${e2ePort}/OpenRequest/__fixtures/profile?mode=full`
 
 async function openSidebarIfNeeded(page: import('@playwright/test').Page) {
   const openMenu = page.getByRole('button', { name: 'Open menu' })
@@ -39,7 +40,7 @@ test('synchronizes URL params, sends a deterministic request, and clears the res
 })
 
 test('syntax highlights formatted XML while Raw stays literal', async ({ page }) => {
-  await page.getByLabel('Request URL').fill('http://127.0.0.1:4173/OpenRequest/__fixtures/profile.xml')
+  await page.getByLabel('Request URL').fill(`http://127.0.0.1:${e2ePort}/OpenRequest/__fixtures/profile.xml`)
   await page.getByRole('button', { name: 'Send' }).click()
   await expect(page.locator('pre[data-language="xml"] .syntax-tag').first()).toHaveText('profile')
   await expect(page.locator('pre[data-language="xml"] .syntax-attribute')).toHaveText('id')
@@ -73,6 +74,51 @@ test('persists the selected theme', async ({ page }) => {
   await expect(page.locator('html')).toHaveAttribute('data-theme', 'light')
   await page.reload()
   await expect(page.locator('html')).toHaveAttribute('data-theme', 'light')
+})
+
+test('light theme keeps readable contrast and coordinated subtle surfaces', async ({ page }) => {
+  await page.getByTitle('Toggle theme').click()
+  const light = await page.evaluate(() => {
+    const contrast = (foreground: string, background: string) => {
+      const channels = (color: string) => color.match(/[\d.]+/g)!.slice(0, 3).map(Number).map((value) => {
+        const normalized = value / 255
+        return normalized <= .04045 ? normalized / 12.92 : ((normalized + .055) / 1.055) ** 2.4
+      })
+      const luminance = (color: string) => {
+        const [red, green, blue] = channels(color)
+        return .2126 * red + .7152 * green + .0722 * blue
+      }
+      const first = luminance(foreground)
+      const second = luminance(background)
+      return (Math.max(first, second) + .05) / (Math.min(first, second) + .05)
+    }
+    const body = getComputedStyle(document.body)
+    const muted = getComputedStyle(document.querySelector('.mode-label')!)
+    const panel = getComputedStyle(document.querySelector('.panel')!)
+    const requestContent = getComputedStyle(document.querySelector('.editor-content')!)
+    const responseContent = getComputedStyle(document.querySelector('.response-content')!)
+    const field = getComputedStyle(document.querySelector('.pair-row input:not([type=checkbox])')!)
+    return {
+      textContrast: contrast(body.color, body.backgroundColor),
+      mutedContrast: contrast(muted.color, getComputedStyle(document.querySelector('.topbar')!).backgroundColor),
+      panelBackground: panel.backgroundColor,
+      pageBackground: body.backgroundColor,
+      panelShadow: panel.boxShadow,
+      requestContentBackground: requestContent.backgroundColor,
+      responseContentBackground: responseContent.backgroundColor,
+      fieldShadow: field.boxShadow,
+    }
+  })
+  expect(light.textContrast).toBeGreaterThanOrEqual(7)
+  expect(light.mutedContrast).toBeGreaterThanOrEqual(4.5)
+  expect(light.panelBackground).not.toBe(light.pageBackground)
+  expect(light.panelShadow).not.toBe('none')
+  expect(light.requestContentBackground).toBe(light.responseContentBackground)
+  expect(light.requestContentBackground).not.toBe(light.panelBackground)
+  expect(light.fieldShadow).not.toBe('none')
+
+  await page.getByTitle('Toggle theme').click()
+  await expect(page.locator('.panel').first()).toHaveCSS('box-shadow', 'none')
 })
 
 test('reveals theme-aware URL details on demand without duplicating the editor', async ({ page }) => {

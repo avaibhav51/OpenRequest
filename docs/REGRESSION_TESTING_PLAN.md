@@ -4,11 +4,13 @@
 
 Foundation implemented. The Vitest suite covers pure request-processing logic, while Playwright now drives the production build in Chromium, WebKit, and a mobile Chromium profile. The deterministic suite verifies the `/OpenRequest/` deployment path, bundled logo/default collection, URL/Params synchronization, request/response flow, response clearing, IndexedDB persistence, theme persistence, PWA manifest, and Chromium service-worker registration.
 
-Responsive regressions also exercise empty tablet/mobile portrait workspaces, assert that the document does not exceed the visible viewport, verify that the mobile sidebar footer remains reachable, and confirm keyboard resizing of the stacked request/response divider.
+Responsive regressions also exercise empty tablet/mobile portrait workspaces, assert that the document does not exceed the visible viewport, verify that the closed sidebar casts no shadow into the workspace and its opened footer remains reachable, and confirm keyboard resizing of the stacked request/response divider.
 
 Minimum-pane coverage verifies that the editor tab strip can horizontally reveal the selected Scripts tab and that the Before Request/After Response editors never overlap when the request pane is resized to its minimum height; the editor content scrolls internally instead.
 
 URL-details coverage verifies that no persistent duplicate URL consumes editor space, while focus/hover or the touch-accessible details button reveals protocol, host/port, path-parameter placeholder, endpoint, query-key, and query-value segmentation. It also confirms that light/dark palettes differ and the original editable URL remains unchanged.
+
+Theme coverage verifies persistent switching, WCAG-readable primary and secondary light-mode contrast, coordinated page/panel/reading surfaces, restrained light-only panel depth, and preservation of the flat dark-mode surface treatment.
 
 The test-only Node server mounts `dist` at `/OpenRequest/` and provides same-origin JSON and XML fixture APIs. Regression coverage confirms theme-aware tokens in the formatted response and an unchanged, uncolored Raw payload, without depending on public APIs, accounts, email delivery, or Supabase. GitHub Actions installs the browsers, runs the suite, and retains the HTML report plus failure screenshots, video, and traces.
 
