@@ -5,6 +5,7 @@ import {
 } from 'lucide-react'
 import { AuthModal } from './components/AuthModal'
 import { HelpModal } from './components/HelpModal'
+import { InfoTip } from './components/InfoTip'
 import { VariablesModal } from './components/VariablesModal'
 import { bodyTypeFromContentType, headersForBodyType } from './lib/body'
 import { parseCurl, toCurl } from './lib/curl'
@@ -14,6 +15,7 @@ import { queryParamsFromUrl, urlWithQueryParams } from './lib/queryParams'
 import { executeRequest, friendlyRequestError } from './lib/request'
 import { tokenizeJson, tokenizeXml, type SyntaxToken } from './lib/responseSyntax'
 import { runPostResponseScript, runPreRequestScript } from './lib/scripts'
+import { getSyncStatus, syncNow } from './lib/syncService'
 import { referencedVariables, resolveRequest, variableMap } from './lib/variables'
 import { emptyPair, newRequest, type Collection, type KeyValue, type RequestAuth } from './types'
 import { useAppStore } from './store'
@@ -150,7 +152,7 @@ function Sidebar({ open, close }: { open: boolean; close: () => void }) {
   }
 
   return <aside className={`sidebar ${open ? 'open' : ''}`}>
-    <div className="brand"><img src={appMarkUrl} alt="" /><span>OpenRequest</span><button className="icon-button mobile-only" onClick={close}><X size={18} /></button></div>
+    <div className="brand"><img src={appMarkUrl} alt="" /><span>OpenRequest</span><button className="icon-button mobile-only" aria-label="Close menu" onClick={close}><X size={18} /></button></div>
     <div className="side-tabs">
       <button className={section === 'collections' ? 'active' : ''} onClick={() => setSection('collections')}><Archive size={16} /> Collections</button>
       <button className={section === 'history' ? 'active' : ''} onClick={() => setSection('history')}><History size={16} /> History</button>
@@ -185,7 +187,7 @@ function Sidebar({ open, close }: { open: boolean; close: () => void }) {
 }
 
 function ModalPanel({ modal, close }: { modal: 'curl' | 'save' | 'settings'; close: () => void }) {
-  const { collections, draft, updateDraft, saveDraft } = useAppStore()
+  const { collections, draft, updateDraft, saveDraft, pendingSyncCount } = useAppStore()
   const [curl, setCurl] = useState('')
   const [message, setMessage] = useState('')
   const [name, setName] = useState(draft.name)
@@ -206,7 +208,7 @@ function ModalPanel({ modal, close }: { modal: 'curl' | 'save' | 'settings'; clo
       {modal === 'curl' && <div className="modal-body"><label>cURL command<textarea autoFocus rows={9} value={curl} onChange={(event) => setCurl(event.target.value)} placeholder="curl 'https://api.example.com/users' \
   -H 'Authorization: Bearer …'" /></label>{message && <p className="error-note">{message}</p>}<div className="modal-actions"><button onClick={close}>Cancel</button><button className="primary" onClick={importCurl}>Import request</button></div></div>}
       {modal === 'save' && <div className="modal-body"><label>Request name<input autoFocus value={name} onChange={(event) => setName(event.target.value)} /></label><label>Collection<select value={collectionId} onChange={(event) => setCollectionId(event.target.value)}><option value="">Unfiled</option>{collections.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select></label><label>Folder path <small>(optional, use / to nest)</small><input placeholder="Auth / Sessions" value={folderPath} onChange={(event) => setFolderPath(event.target.value)} /></label><div className="modal-actions"><button onClick={close}>Cancel</button><button className="primary" onClick={save}>Save locally</button></div></div>}
-      {modal === 'settings' && <div className="modal-body settings-copy"><div className="privacy-card"><span className="status-dot" /><div><strong>Local-only mode is active</strong><p>Collections, request bodies, environment values, and history are stored in this browser's IndexedDB. Nothing is uploaded by this app.</p></div></div><h3>Optional sync</h3><p>Account sync is intentionally not part of this first slice. The architecture keeps it optional: local use will never require a login.</p><h3>Browser boundary</h3><p>Web browsers enforce CORS and cannot make arbitrary native gRPC or raw TCP requests. A small, opt-in local bridge is planned for those cases.</p><div className="modal-actions"><button className="primary" onClick={close}>Done</button></div></div>}
+      {modal === 'settings' && <div className="modal-body settings-copy"><div className="privacy-card"><span className="status-dot" /><div><strong>Local-first workspace</strong><p>Your work stays in this browser unless you sign in and explicitly enable encrypted sync.</p></div></div><h3 className="with-info">End-to-end encrypted sync <InfoTip label="How encrypted sync protects data" text="Saved requests are encrypted in this browser before upload. Supabase stores ciphertext and limited account/revision metadata, not the plaintext workspace key, sync passphrase, or decrypted requests. Database operators can copy, delete, or alter encrypted rows but cannot decrypt them with database credentials alone." /></h3><p>{pendingSyncCount} local change{pendingSyncCount === 1 ? '' : 's'} waiting to sync. A new browser needs both your account login and sync passphrase once.</p><h3 className="with-info">Private on this browser <InfoTip label="What does not synchronize" text="Unsaved edits, responses, history, variables, never-synced empty collections, and known active authorization values remain local. Local use never requires an account." /></h3><p>Only explicitly saved requests and the collection details needed to organize them participate in sync.</p><h3 className="with-info">Security note <InfoTip label="Encryption limitations" text="Encryption cannot protect against a compromised frontend, malicious extension, unlocked device, or code that captures data before encryption. Use a unique passphrase, retain exports, and avoid long-lived production secrets while this 0.x feature has no independent security audit." /></h3><p>Use a unique sync passphrase and keep independent exports for important work.</p><h3>Browser boundary</h3><p>Web browsers enforce CORS and cannot make arbitrary native gRPC or raw TCP requests. Some APIs require compatible CORS settings or the planned local companion.</p><div className="modal-actions"><button className="primary" onClick={close}>Done</button></div></div>}
     </section>
   </div>
 }
@@ -223,6 +225,7 @@ function App() {
   const [responseCopied, setResponseCopied] = useState(false)
   const [pasteNotice, setPasteNotice] = useState('')
   const [authUser, setAuthUser] = useState<AuthUser | null>(null)
+  const [syncState, setSyncState] = useState<'local' | 'syncing' | 'synced' | 'paused'>('local')
   const [splitPercent, setSplitPercent] = useState(42)
   const [stackedSplit, setStackedSplit] = useState(() => window.matchMedia('(max-width: 1100px)').matches)
 
@@ -240,6 +243,35 @@ function App() {
     const { data } = authClient.auth.onAuthStateChange((_event, session) => setAuthUser(session?.user ?? null))
     return () => data.subscription.unsubscribe()
   }, [])
+  useEffect(() => {
+    if (!authUser || !store.hydrated) { setSyncState('local'); return }
+    let disposed = false
+    const synchronize = async () => {
+      try {
+        const status = await getSyncStatus(authUser.id)
+        if (!status.enabled) { if (!disposed) setSyncState(status.boundToDifferentAccount ? 'paused' : 'local'); return }
+        if (!disposed) setSyncState('syncing')
+        await syncNow(authUser.id)
+        await useAppStore.getState().hydrate()
+        if (!disposed) setSyncState('synced')
+      } catch {
+        if (!disposed) setSyncState('paused')
+      }
+    }
+    const onVisible = () => { if (document.visibilityState === 'visible') void synchronize() }
+    void synchronize()
+    const interval = window.setInterval(synchronize, 30_000)
+    window.addEventListener('online', synchronize)
+    window.addEventListener('focus', synchronize)
+    document.addEventListener('visibilitychange', onVisible)
+    return () => {
+      disposed = true
+      window.clearInterval(interval)
+      window.removeEventListener('online', synchronize)
+      window.removeEventListener('focus', synchronize)
+      document.removeEventListener('visibilitychange', onVisible)
+    }
+  }, [authUser?.id, store.hydrated, store.pendingSyncCount])
 
   const prettyBody = useMemo(() => {
     if (!response) return ''
@@ -342,7 +374,7 @@ function App() {
     setSplitPercent((current) => event.key === 'Home' ? 42 : clampSplit(current + (increase ? 3 : -3)))
   }
 
-  return <div className="app-shell">
+  return <div className="app-shell" data-sync-state={syncState}>
     <Sidebar open={sidebar} close={() => setSidebar(false)} />
     {sidebar && <button className="mobile-scrim" aria-label="Close menu" onClick={() => setSidebar(false)} />}
     <main>
@@ -384,7 +416,7 @@ function App() {
     </main>
     {modal === 'variables' && <VariablesModal close={() => setModal(null)} />}
     {modal === 'help' && <HelpModal close={() => setModal(null)} />}
-    {modal === 'auth' && <AuthModal user={authUser} close={() => setModal(null)} />}
+    {modal === 'auth' && <AuthModal user={authUser} close={() => setModal(null)} onSynced={() => useAppStore.getState().hydrate()} />}
     {modal && !['variables', 'help', 'auth'].includes(modal) && <ModalPanel modal={modal as 'curl' | 'save' | 'settings'} close={() => setModal(null)} />}
   </div>
 }

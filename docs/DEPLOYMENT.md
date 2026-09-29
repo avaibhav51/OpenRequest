@@ -96,7 +96,7 @@ These values are public frontend configuration. Do not add service-role keys, OA
 
 Add them at **Repository -> Settings -> Secrets and variables -> Actions -> Variables -> New repository variable**. They are injected when GitHub Actions builds the frontend, so changing one requires another deployment. Every visitor receives the same public project URL and publishable key; individual identity and access come from the user's Supabase session, not from hiding this key.
 
-The publishable/anon key is intentionally inspectable in the browser. Never substitute a Supabase secret or `service_role` key: those can bypass Row Level Security. The current application uses Supabase only for Auth and has no sync tables. Before future sync is deployed, every application table must enable tested RLS policies that restrict rows to the authenticated workspace owner, and workspace content must be encrypted in the browser before upload. See [Optional authentication setup](AUTH_SETUP.md) and [Future encrypted synchronization and RLS](ENCRYPTED_SYNC_PLAN.md).
+The publishable/anon key is intentionally inspectable in the browser. Never substitute a Supabase secret or `service_role` key: those can bypass Row Level Security. Apply the checked-in migrations before offering encrypted sync. The browser uses its signed-in session under RLS, encrypts saved revisions locally, and uploads only after the user explicitly enables sync. See [Optional authentication setup](AUTH_SETUP.md) and [Encrypted synchronization and RLS](ENCRYPTED_SYNC_PLAN.md).
 
 ## Cloudflare Pages
 
@@ -156,7 +156,7 @@ For real public hosting, put the container behind HTTPS through your reverse pro
 
 ## Data model expectation
 
-Hosting the frontend does not create a shared backend. Each browser profile keeps its own local data. A future sync service should encrypt workspace content on the client before upload.
+Hosting only the frontend does not create a shared backend. Without configured Supabase values every browser remains local-only. A deployment that also applies the Supabase migration can offer opt-in client-encrypted synchronization.
 
 ## Free hosting reality
 

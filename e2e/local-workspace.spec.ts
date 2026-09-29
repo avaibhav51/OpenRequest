@@ -8,6 +8,22 @@ async function openSidebarIfNeeded(page: import('@playwright/test').Page) {
   if (await openMenu.isVisible()) await openMenu.click()
 }
 
+async function readSyncOutbox(page: import('@playwright/test').Page) {
+  return page.evaluate(() => new Promise<Array<{ entityType: string; entityId: string; operation: string; updatedAt: number }>>((resolve, reject) => {
+    const opening = indexedDB.open('open-request-workbench')
+    opening.onerror = () => reject(opening.error)
+    opening.onsuccess = () => {
+      const database = opening.result
+      const request = database.transaction('syncOutbox', 'readonly').objectStore('syncOutbox').getAll()
+      request.onerror = () => reject(request.error)
+      request.onsuccess = () => {
+        resolve(request.result.map(({ entityType, entityId, operation, updatedAt }) => ({ entityType, entityId, operation, updatedAt })))
+        database.close()
+      }
+    }
+  }))
+}
+
 test.beforeEach(async ({ page }) => {
   await page.goto('./')
 })
@@ -20,6 +36,69 @@ test('loads the base-path assets and seeded collection', async ({ page }) => {
   expect(await mark.evaluate((image: HTMLImageElement) => image.naturalWidth)).toBeGreaterThan(0)
   await expect(page.getByText('test-apis-public')).toBeVisible()
   await expect(page.getByText('naas', { exact: true })).toBeVisible()
+})
+
+test('keeps a newly created empty collection local and out of the sync queue', async ({ page }) => {
+  await openSidebarIfNeeded(page)
+  page.once('dialog', async (dialog) => dialog.accept('Private empty collection'))
+  await page.getByRole('button', { name: 'Add collection' }).click()
+  await expect(page.getByText('Private empty collection', { exact: true })).toBeVisible()
+  const closeMenu = page.locator('.sidebar .brand').getByRole('button', { name: 'Close menu' })
+  if (await closeMenu.isVisible()) await closeMenu.click()
+  await page.getByTitle('Settings').click()
+  await expect(page.getByRole('dialog', { name: 'Workspace settings' })).toContainText('0 local changes waiting in the offline outbox')
+})
+
+test('shows detailed security help without clipping and keeps short copy inline', async ({ page }) => {
+  await page.getByTitle('Settings').click()
+  const details = page.getByRole('button', { name: 'How encrypted sync protects data' })
+  await details.hover()
+  const tooltip = page.getByRole('tooltip')
+  await expect(tooltip).toBeVisible()
+  const box = await tooltip.boundingBox()
+  const viewport = page.viewportSize()
+  expect(box).not.toBeNull()
+  expect(viewport).not.toBeNull()
+  expect(box!.x).toBeGreaterThanOrEqual(0)
+  expect(box!.y).toBeGreaterThanOrEqual(0)
+  expect(box!.x + box!.width).toBeLessThanOrEqual(viewport!.width)
+  expect(box!.y + box!.height).toBeLessThanOrEqual(viewport!.height)
+  await expect(page.getByRole('heading', { name: 'Browser boundary' }).getByRole('button')).toHaveCount(0)
+})
+
+test('queues only explicit saves and coalesces edits per saved request', async ({ page }) => {
+  await page.getByLabel('Request name').fill('Local draft')
+  await page.getByLabel('Request URL').fill(apiUrl)
+  await expect.poll(() => readSyncOutbox(page)).toEqual([])
+
+  await page.getByRole('button', { name: 'Send' }).click()
+  await expect(page.locator('.response-meta b')).toHaveText('200 OK')
+  await expect.poll(() => readSyncOutbox(page)).toEqual([])
+
+  await page.getByRole('button', { name: 'Save', exact: true }).click()
+  await page.getByRole('dialog', { name: 'Save request' }).getByRole('button', { name: 'Save locally' }).click()
+  const firstSave = await readSyncOutbox(page)
+  expect(firstSave).toHaveLength(1)
+  expect(firstSave[0]).toMatchObject({ entityType: 'request', operation: 'upsert' })
+
+  await page.getByLabel('Request URL').fill(`${apiUrl}&unsaved=yes`)
+  expect(await readSyncOutbox(page)).toEqual(firstSave)
+
+  await page.getByRole('button', { name: 'Save', exact: true }).click()
+  await page.getByRole('dialog', { name: 'Save request' }).getByRole('button', { name: 'Save locally' }).click()
+  const secondSave = await readSyncOutbox(page)
+  expect(secondSave).toHaveLength(1)
+  expect(secondSave[0].entityId).toBe(firstSave[0].entityId)
+  expect(secondSave[0].updatedAt).toBeGreaterThanOrEqual(firstSave[0].updatedAt)
+
+  await page.getByRole('button', { name: 'New' }).click()
+  await page.getByLabel('Request name').fill('Second saved request')
+  await page.getByLabel('Request URL').fill(apiUrl)
+  await page.getByRole('button', { name: 'Save', exact: true }).click()
+  await page.getByRole('dialog', { name: 'Save request' }).getByRole('button', { name: 'Save locally' }).click()
+  const independentSaves = await readSyncOutbox(page)
+  expect(independentSaves.filter((entry) => entry.entityType === 'request')).toHaveLength(2)
+  expect(new Set(independentSaves.map((entry) => entry.entityId)).size).toBe(2)
 })
 
 test('synchronizes URL params, sends a deterministic request, and clears the response', async ({ page }) => {
@@ -66,6 +145,10 @@ test('persists a saved request in IndexedDB across reload', async ({ page }) => 
   await expect(page.getByText('Regression profile', { exact: true })).toBeVisible()
   await page.getByText('Regression profile', { exact: true }).click()
   await expect(page.getByLabel('Request URL')).toHaveValue(apiUrl)
+
+  await page.getByTitle('Settings').click()
+  await expect(page.getByRole('dialog', { name: 'Workspace settings' })).toContainText('2 local changes waiting in the offline outbox')
+  await expect(page.getByRole('dialog', { name: 'Workspace settings' })).toContainText('Nothing is uploaded unless you sign in and explicitly enable encrypted sync')
 })
 
 test('persists the selected theme', async ({ page }) => {

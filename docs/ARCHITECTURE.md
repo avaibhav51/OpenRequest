@@ -23,6 +23,10 @@ The PWA is independently useful. The local bridge is a capability extension, not
 - `src/lib/curl.ts`: deliberately small cURL importer/exporter. It must become a fixture-driven parser before claiming broad compatibility.
 - `src/db.ts`: versioned Dexie/IndexedDB schema.
 - `src/store.ts`: UI state and persistence operations.
+- `src/lib/syncOutbox.ts`: versioned, coalescing metadata-only mutation records for the offline sync foundation; it contains no transport and stores no duplicate entity payloads.
+- `src/lib/syncBinding.ts`: fail-closed local-workspace/account binding guard; no binding is created implicitly.
+- `src/lib/syncCrypto.ts` and `syncRecovery.ts`: provider-neutral AES-GCM envelope plus PBKDF2/AES-GCM passphrase wrapping for one-time new-browser unlock.
+- `src/lib/syncPayload.ts`: initial upload allow-list. Collection/environment metadata can be prepared, while requests are blocked pending credential/body review.
 - `src/types.ts`: the current internal data contract.
 - `src/App.tsx`: first vertical-slice UI; split into feature modules as Phase 1 begins.
 
@@ -40,14 +44,14 @@ apps/
   bridge/               loopback-only native companion
   cli/                  CI and terminal runner
 services/
-  sync-reference/       optional Java/Spring Boot ciphertext/revision store
+  sync-reference/       optional portable ciphertext/revision adapter
 ```
 
 Do not start a monorepo migration until the second consumer (CLI or bridge) exists.
 
 ### Optional backend implementation
 
-There is intentionally no backend in the current milestone. When account-based sync or hosted collaboration becomes real work, the default reference implementation will use Java 25 LTS, Spring Boot 4.x, Maven Wrapper, PostgreSQL, Flyway, Spring Security, and Testcontainers. These are mature, open-source technologies with good Java documentation and local Docker support. See `TECHNOLOGY_DECISIONS.md` for the trigger criteria and dependency rules.
+There is no maintainer-operated backend in the current milestone. Optional encrypted sync uses an operator-provided hosted or self-hosted Supabase project for Auth, PostgreSQL, generated APIs, and tested RLS. The browser encrypts revisions and processes its local outbox; Supabase stores wrapped keys, ciphertext, and ordering metadata. A portable backend contract must keep encryption/revision semantics independent of Supabase; build the previously proposed Java 25/Spring Boot reference only when portability, custom operations, or collaboration requirements justify operating a separate service. See `TECHNOLOGY_DECISIONS.md` for the trigger criteria and dependency rules.
 
 ## Browser constraints
 

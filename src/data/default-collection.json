@@ -3,6 +3,7 @@
   "version": 1,
   "collection": {
     "id": "f4067883-6a0e-4baf-bb29-c879fa45cc87",
+    "schemaVersion": 1,
     "name": "test-apis-public",
     "description": "",
     "createdAt": 1790011184278
@@ -10,6 +11,7 @@
   "requests": [
     {
       "id": "ef42ef7e-d6a2-4c72-93d7-5d6b87c66dde",
+      "schemaVersion": 1,
       "name": "naas",
       "method": "GET",
       "url": "https://naas.isalman.dev/no",
@@ -39,6 +41,7 @@
     },
     {
       "id": "2d582abb-d03d-4dc6-a13d-f5ad9a4b1978",
+      "schemaVersion": 1,
       "name": "hp-spells",
       "method": "GET",
       "url": "https://hp-api.onrender.com/api/spells",
@@ -68,6 +71,7 @@
     },
     {
       "id": "db993e4d-d39f-472c-b5b1-eb60d45eb97f",
+      "schemaVersion": 1,
       "name": "bmi-calculator",
       "method": "GET",
       "url": "https://bmicalculatorapi.vercel.app/api/bmi/87.9/1.75",
@@ -97,6 +101,7 @@
     },
     {
       "id": "23066ee9-6d50-43b3-9bd4-7488586561ab",
+      "schemaVersion": 1,
       "name": "sunrise-sunset",
       "method": "GET",
       "url": "https://api.sunrise-sunset.org/json?lat=36.7201600&lng=-4.4203400",
@@ -126,6 +131,7 @@
     },
     {
       "id": "c059991b-670e-4a10-9297-f3b63bf8309a",
+      "schemaVersion": 1,
       "name": "yes-or-no",
       "method": "GET",
       "url": "https://yesno.wtf/api",
@@ -155,6 +161,7 @@
     },
     {
       "id": "e7cba3f0-4b32-4a85-bb59-893a9565e0b5",
+      "schemaVersion": 1,
       "name": "my_ip-address",
       "method": "GET",
       "url": "https://api.ipify.org/?format=json",
@@ -184,6 +191,7 @@
     },
     {
       "id": "23376f37-d1b4-4613-bd99-413e105def8f",
+      "schemaVersion": 1,
       "name": "randomjoke",
       "method": "GET",
       "url": "https://official-joke-api.appspot.com/random_joke",
@@ -213,6 +221,7 @@
     },
     {
       "id": "85480e49-b27c-4902-9381-c649deea1fe0",
+      "schemaVersion": 1,
       "name": "users-DELETE",
       "method": "DELETE",
       "url": "https://reqres.in/api/users/2",
@@ -244,6 +253,7 @@
     },
     {
       "id": "9019dc7d-10f9-44fd-a244-c566c1556191",
+      "schemaVersion": 1,
       "name": "users-POST",
       "method": "POST",
       "url": "https://reqres.in/api/users",
@@ -281,6 +291,7 @@
     },
     {
       "id": "8489e692-3916-4f04-931b-b3cee7ae15b0",
+      "schemaVersion": 1,
       "name": "users-PATCH",
       "method": "PATCH",
       "url": "https://reqres.in/api/users/2",
@@ -318,6 +329,7 @@
     },
     {
       "id": "16ded219-2641-4524-9c71-eea2a6cf683e",
+      "schemaVersion": 1,
       "name": "users-PUT",
       "method": "PUT",
       "url": "https://reqres.in/api/users/2",
@@ -355,6 +367,7 @@
     },
     {
       "id": "f23c1c96-64f5-40ae-bbd8-d2c4035b6527",
+      "schemaVersion": 1,
       "name": "users-GET",
       "method": "GET",
       "url": "https://reqres.in/api/users?page=2",

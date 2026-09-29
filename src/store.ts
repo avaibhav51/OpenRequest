@@ -3,6 +3,12 @@ import { db } from './db'
 import { newRequest, uid, type Collection, type Environment, type HistoryEntry, type RequestDraft, type ResponseSnapshot, type WorkspaceVariable } from './types'
 import defaultCollection from './data/default-collection.json'
 import { hydrateLegacyQueryParams } from './lib/queryParams'
+import { createSyncOutboxEntry, syncOutboxId, type SyncEntityType, type SyncOperation } from './lib/syncOutbox'
+
+const queueSyncMutation = async (entityType: SyncEntityType, entityId: string, operation: SyncOperation) => {
+  const previous = await db.syncOutbox.get(syncOutboxId(entityType, entityId))
+  await db.syncOutbox.put(createSyncOutboxEntry(entityType, entityId, operation, Date.now(), previous))
+}
 
 interface AppState {
   collections: Collection[]
@@ -16,6 +22,7 @@ interface AppState {
   error?: string
   busy: boolean
   hydrated: boolean
+  pendingSyncCount: number
   hydrate: () => Promise<void>
   updateDraft: (patch: Partial<RequestDraft>) => void
   selectRequest: (request: RequestDraft) => void
@@ -35,14 +42,15 @@ interface AppState {
 }
 
 export const useAppStore = create<AppState>((set, get) => ({
-  collections: [], requests: [], history: [], environments: [], variables: [], activeEnvironmentId: '', draft: newRequest(), busy: false, hydrated: false,
+  collections: [], requests: [], history: [], environments: [], variables: [], activeEnvironmentId: '', draft: newRequest(), busy: false, hydrated: false, pendingSyncCount: 0,
   hydrate: async () => {
-    let [collections, requests, history, storedEnvironments, variables] = await Promise.all([
+    let [collections, requests, history, storedEnvironments, variables, pendingSyncCount] = await Promise.all([
       db.collections.orderBy('createdAt').toArray(),
       db.requests.orderBy('updatedAt').reverse().toArray(),
       db.history.orderBy('createdAt').reverse().limit(50).toArray(),
       db.environments.orderBy('createdAt').toArray(),
-      db.variables.toArray()
+      db.variables.toArray(),
+      db.syncOutbox.where('state').equals('pending').count()
     ])
     if (localStorage.getItem('default-collection-seeded-v1') !== 'yes') {
       const seed = defaultCollection as { collection: Collection; requests: RequestDraft[] }
@@ -71,35 +79,51 @@ export const useAppStore = create<AppState>((set, get) => ({
     }
     let environments = storedEnvironments
     if (!environments.length) {
-      const local: Environment = { id: uid(), name: 'Local', color: '#8eb51d', createdAt: Date.now() }
+      const local: Environment = { id: uid(), schemaVersion: 1, name: 'Local', color: '#8eb51d', createdAt: Date.now() }
       await db.environments.add(local)
       environments = [local]
     }
     const savedActive = localStorage.getItem('active-environment')
     const activeEnvironmentId = environments.some((item) => item.id === savedActive) ? savedActive! : environments[0].id
-    set({ collections, requests, history, environments, variables, activeEnvironmentId, hydrated: true })
+    set({ collections, requests, history, environments, variables, activeEnvironmentId, pendingSyncCount, hydrated: true })
   },
   updateDraft: (patch) => set(({ draft }) => ({ draft: { ...draft, ...patch, updatedAt: Date.now() } })),
   selectRequest: (request) => set({ draft: structuredClone(hydrateLegacyQueryParams(request)), response: undefined, error: undefined }),
   saveDraft: async () => {
     const draft = { ...get().draft, name: get().draft.name.trim() || 'Untitled request', updatedAt: Date.now() }
-    await db.requests.put(draft)
+    await db.transaction('rw', db.collections, db.requests, db.syncOutbox, async () => {
+      await db.requests.put(draft)
+      if (draft.collectionId && await db.collections.get(draft.collectionId)) {
+        await queueSyncMutation('collection', draft.collectionId, 'upsert')
+      }
+      await queueSyncMutation('request', draft.id, 'upsert')
+    })
     const requests = await db.requests.orderBy('updatedAt').reverse().toArray()
-    set({ draft, requests })
+    const pendingSyncCount = await db.syncOutbox.count()
+    set({ draft, requests, pendingSyncCount })
   },
   addCollection: async (name) => {
-    const collection = { id: uid(), name: name.trim() || 'New collection', description: '', createdAt: Date.now() }
+    const collection: Collection = { id: uid(), schemaVersion: 1, name: name.trim() || 'New collection', description: '', createdAt: Date.now() }
     await db.collections.add(collection)
     set(({ collections }) => ({ collections: [...collections, collection] }))
   },
   removeCollection: async (id) => {
-    await db.transaction('rw', db.collections, db.requests, async () => {
+    const updatedAt = Date.now()
+    const affectedRequestIds = get().requests.filter((request) => request.collectionId === id).map((request) => request.id)
+    await db.transaction('rw', db.collections, db.requests, db.syncOutbox, db.syncedEntities, async () => {
+      const pendingCollection = await db.syncOutbox.get(syncOutboxId('collection', id))
+      const syncedCollection = await db.syncedEntities.get(syncOutboxId('collection', id))
       await db.collections.delete(id)
-      await db.requests.where('collectionId').equals(id).modify({ collectionId: undefined })
+      await db.requests.where('collectionId').equals(id).modify({ collectionId: undefined, updatedAt })
+      if (syncedCollection) await queueSyncMutation('collection', id, 'delete')
+      else if (pendingCollection) await db.syncOutbox.delete(syncOutboxId('collection', id))
+      await Promise.all(affectedRequestIds.map((requestId) => queueSyncMutation('request', requestId, 'upsert')))
     })
+    const pendingSyncCount = await db.syncOutbox.count()
     set(({ collections, requests }) => ({
       collections: collections.filter((item) => item.id !== id),
-      requests: requests.map((item) => item.collectionId === id ? { ...item, collectionId: undefined } : item)
+      requests: requests.map((item) => item.collectionId === id ? { ...item, collectionId: undefined, updatedAt } : item),
+      pendingSyncCount
     }))
   },
   recordRun: async (response) => {
@@ -116,7 +140,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   clearHistory: async () => { await db.history.clear(); set({ history: [] }) },
   addEnvironment: async (name) => {
     const colors = ['#8eb51d', '#4f9ee8', '#a879e8', '#e5a630', '#df6767', '#2bb6a8']
-    const environment: Environment = { id: uid(), name: name.trim() || 'Environment', color: colors[get().environments.length % colors.length], createdAt: Date.now() }
+    const environment: Environment = { id: uid(), schemaVersion: 1, name: name.trim() || 'Environment', color: colors[get().environments.length % colors.length], createdAt: Date.now() }
     await db.environments.add(environment)
     set(({ environments }) => ({ environments: [...environments, environment], activeEnvironmentId: environment.id }))
     localStorage.setItem('active-environment', environment.id)
