@@ -14,6 +14,8 @@ Theme coverage verifies persistent switching, WCAG-readable primary and secondar
 
 The test-only Node server mounts `dist` at `/OpenRequest/` and provides same-origin JSON and XML fixture APIs. Regression coverage confirms theme-aware tokens in the formatted response, an unchanged uncolored Raw payload, and persistence of the metadata-only sync outbox after reload—without depending on public APIs, accounts, email delivery, or Supabase. GitHub Actions installs the browsers, runs the suite, and retains the HTML report plus failure screenshots, video, and traces.
 
+The database-security CI job installs the repository's locked npm dependencies before running the public Data API isolation script because that script imports the checked-in `@supabase/supabase-js` dependency. The SQL-only pgTAP step does not require Node packages, but both checks intentionally run in the same prepared job.
+
 Saved-request coverage verifies that editing or sending an unsaved draft creates no outbox entry, the first explicit save queues one request, repeated saves coalesce by request identity, a second saved request remains independent, a saved request filed in a collection queues both objects, and a never-synchronized empty collection remains browser-private. A separately gated real-Supabase test verifies encrypted transport between two browser profiles.
 
 ## Synchronization expectation audit
