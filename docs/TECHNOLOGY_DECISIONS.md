@@ -9,7 +9,8 @@ Last reviewed: 21 September 2026.
 | Web/PWA | React + TypeScript + Vite | Adopted | Mature ecosystem, good PWA support, small static deployment, and no server required for local mode. |
 | Local storage | IndexedDB through Dexie | Adopted for prototype | Established browser storage wrapper with schema migrations. File-backed workspaces remain the durable target. |
 | UI state | Zustand | Adopted | Small API and minimal ceremony. Domain data remains outside the store implementation. |
-| Optional backend | Java 25 LTS + Spring Boot 4.x | Planned, not yet needed | Familiar Java development model, mature security/data/testing ecosystem, and straightforward self-hosting. Java 25 is the current LTS; Spring Boot 4.1 supports Java through 26. |
+| Optional encrypted sync | Supabase Auth + PostgreSQL/RLS | Adopted for the initial single-owner implementation | Reuses mature open-source Auth/database APIs, supports encrypted revision transport, and permits local two-user policy tests. The client remains portable and local mode independent. |
+| Portable custom backend | Java 25 LTS + Spring Boot 4.x | Conditional, not yet needed | Familiar Java model and mature security/data/testing ecosystem, but should be built only when the Supabase adapter cannot meet an accepted requirement. |
 | Backend build | Maven Wrapper | Planned | Predictable setup without requiring a globally installed Maven version. |
 | Database | PostgreSQL + Flyway | Planned | Mature open-source relational store and explicit, reviewable migrations. SQLite may be offered for single-user self-hosting after concurrency tests. |
 | Authentication | OIDC/OAuth adapter; Keycloak reference deployment | Evaluate in Phase 3 | Keycloak is mature and self-hostable. It can provide local accounts and broker Google/GitHub. The PWA must still work without it. |
@@ -26,7 +27,7 @@ REST requests, local collections, history, import/export, and an installable PWA
 - pressure to make signup part of onboarding;
 - implementation work without improving the local workflow.
 
-A backend becomes justified only when at least one accepted milestone needs cross-device encrypted sync, account recovery, shared workspaces, or a hosted revision log. Browser CORS and native gRPC are not reasons for a hosted backend: the correct privacy-preserving solution is an opt-in local bridge.
+A separately operated custom backend becomes justified only when an accepted milestone cannot be met by the optional Supabase adapter and needs cross-device encrypted sync, account recovery, shared workspaces, or a hosted revision log. Browser CORS and native gRPC are not reasons for a hosted backend: the correct privacy-preserving solution is an opt-in local bridge.
 
 ## Local companion baseline
 

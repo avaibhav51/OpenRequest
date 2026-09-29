@@ -39,3 +39,25 @@ jobs:
           name: playwright-report
           path: playwright-report/
           retention-days: 14
+
+  database-security:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - uses: supabase/setup-cli@v1
+        with:
+          version: latest
+      - name: Start isolated Supabase stack
+        run: supabase start
+      - name: Test multi-user RLS policies
+        run: supabase test db
+      - name: Test public API with two authenticated users
+        run: npm run test:db:api
+      - name: Stop isolated Supabase stack
+        if: ${{ always() }}
+        run: supabase stop --no-backup

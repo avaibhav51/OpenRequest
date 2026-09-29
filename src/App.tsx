@@ -5,6 +5,7 @@ import {
 } from 'lucide-react'
 import { AuthModal } from './components/AuthModal'
 import { HelpModal } from './components/HelpModal'
+import { InfoTip } from './components/InfoTip'
 import { VariablesModal } from './components/VariablesModal'
 import { bodyTypeFromContentType, headersForBodyType } from './lib/body'
 import { parseCurl, toCurl } from './lib/curl'
@@ -14,8 +15,9 @@ import { queryParamsFromUrl, urlWithQueryParams } from './lib/queryParams'
 import { executeRequest, friendlyRequestError } from './lib/request'
 import { tokenizeJson, tokenizeXml, type SyntaxToken } from './lib/responseSyntax'
 import { runPostResponseScript, runPreRequestScript } from './lib/scripts'
+import { getSyncStatus, syncNow } from './lib/syncService'
 import { referencedVariables, resolveRequest, variableMap } from './lib/variables'
-import { emptyPair, newRequest, type Collection, type KeyValue, type RequestAuth } from './types'
+import { emptyPair, type Collection, type KeyValue, type RequestAuth } from './types'
 import { useAppStore } from './store'
 
 type EditorTab = 'params' | 'headers' | 'auth' | 'body' | 'scripts'
@@ -150,7 +152,7 @@ function Sidebar({ open, close }: { open: boolean; close: () => void }) {
   }
 
   return <aside className={`sidebar ${open ? 'open' : ''}`}>
-    <div className="brand"><img src={appMarkUrl} alt="" /><span>OpenRequest</span><button className="icon-button mobile-only" onClick={close}><X size={18} /></button></div>
+    <div className="brand"><img src={appMarkUrl} alt="" /><span>OpenRequest</span><button className="icon-button mobile-only" aria-label="Close menu" onClick={close}><X size={18} /></button></div>
     <div className="side-tabs">
       <button className={section === 'collections' ? 'active' : ''} onClick={() => setSection('collections')}><Archive size={16} /> Collections</button>
       <button className={section === 'history' ? 'active' : ''} onClick={() => setSection('history')}><History size={16} /> History</button>
@@ -185,18 +187,17 @@ function Sidebar({ open, close }: { open: boolean; close: () => void }) {
 }
 
 function ModalPanel({ modal, close }: { modal: 'curl' | 'save' | 'settings'; close: () => void }) {
-  const { collections, draft, updateDraft, saveDraft } = useAppStore()
+  const { collections, draft, updateDraft, saveDraft, pendingSyncCount } = useAppStore()
   const [curl, setCurl] = useState('')
   const [message, setMessage] = useState('')
   const [name, setName] = useState(draft.name)
   const [collectionId, setCollectionId] = useState(draft.collectionId ?? '')
-  const [folderPath, setFolderPath] = useState(draft.folderPath?.join('/') ?? '')
 
   const importCurl = () => {
     try { updateDraft(parseCurl(curl)); close() } catch (error) { setMessage(error instanceof Error ? error.message : String(error)) }
   }
   const save = async () => {
-    updateDraft({ name, collectionId: collectionId || undefined, folderPath: folderPath.split('/').map((part) => part.trim()).filter(Boolean) })
+    updateDraft({ name, collectionId: collectionId || undefined })
     await new Promise((resolve) => setTimeout(resolve, 0))
     await saveDraft(); close()
   }
@@ -205,8 +206,8 @@ function ModalPanel({ modal, close }: { modal: 'curl' | 'save' | 'settings'; clo
       <header><div>{modal === 'curl' ? <ClipboardPaste /> : modal === 'save' ? <Save /> : <Settings />}<div><h2>{modal === 'curl' ? 'Import cURL' : modal === 'save' ? 'Save request' : 'Workspace settings'}</h2><p>{modal === 'settings' ? 'This workspace is private by default.' : ''}</p></div></div><button className="icon-button" onClick={close}><X /></button></header>
       {modal === 'curl' && <div className="modal-body"><label>cURL command<textarea autoFocus rows={9} value={curl} onChange={(event) => setCurl(event.target.value)} placeholder="curl 'https://api.example.com/users' \
   -H 'Authorization: Bearer …'" /></label>{message && <p className="error-note">{message}</p>}<div className="modal-actions"><button onClick={close}>Cancel</button><button className="primary" onClick={importCurl}>Import request</button></div></div>}
-      {modal === 'save' && <div className="modal-body"><label>Request name<input autoFocus value={name} onChange={(event) => setName(event.target.value)} /></label><label>Collection<select value={collectionId} onChange={(event) => setCollectionId(event.target.value)}><option value="">Unfiled</option>{collections.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select></label><label>Folder path <small>(optional, use / to nest)</small><input placeholder="Auth / Sessions" value={folderPath} onChange={(event) => setFolderPath(event.target.value)} /></label><div className="modal-actions"><button onClick={close}>Cancel</button><button className="primary" onClick={save}>Save locally</button></div></div>}
-      {modal === 'settings' && <div className="modal-body settings-copy"><div className="privacy-card"><span className="status-dot" /><div><strong>Local-only mode is active</strong><p>Collections, request bodies, environment values, and history are stored in this browser's IndexedDB. Nothing is uploaded by this app.</p></div></div><h3>Optional sync</h3><p>Account sync is intentionally not part of this first slice. The architecture keeps it optional: local use will never require a login.</p><h3>Browser boundary</h3><p>Web browsers enforce CORS and cannot make arbitrary native gRPC or raw TCP requests. A small, opt-in local bridge is planned for those cases.</p><div className="modal-actions"><button className="primary" onClick={close}>Done</button></div></div>}
+      {modal === 'save' && <div className="modal-body"><label>Request name<input autoFocus value={name} onChange={(event) => setName(event.target.value)} /></label><label>Collection<select value={collectionId} onChange={(event) => setCollectionId(event.target.value)}><option value="">Unfiled</option>{collections.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select></label><div className="modal-actions"><button onClick={close}>Cancel</button><button className="primary" onClick={save}>Save locally</button></div></div>}
+      {modal === 'settings' && <div className="modal-body settings-copy"><div className="privacy-card"><span className="status-dot" /><div><strong>Local-first workspace</strong><p>Your work stays in this browser unless you sign in and explicitly enable encrypted sync.</p></div></div><h3 className="with-info">End-to-end encrypted sync <InfoTip label="How encrypted sync protects data" text="Saved requests are encrypted in this browser before upload. Supabase stores ciphertext and limited account/revision metadata, not the plaintext workspace key, sync passphrase, or decrypted requests. Database operators can copy, delete, or alter encrypted rows but cannot decrypt them with database credentials alone." /></h3><p>{pendingSyncCount} local change{pendingSyncCount === 1 ? '' : 's'} waiting to sync. A new browser needs both your account login and sync passphrase once.</p><h3 className="with-info">Private on this browser <InfoTip label="What does not synchronize" text="Unsaved edits, responses, history, variables, never-synced empty collections, and known active authorization values remain local. Local use never requires an account." /></h3><p>Only explicitly saved requests and the collection details needed to organize them participate in sync.</p><h3 className="with-info">Security note <InfoTip label="Encryption limitations" text="Encryption cannot protect against a compromised frontend, malicious extension, unlocked device, or code that captures data before encryption. Use a unique passphrase, retain exports, and avoid long-lived production secrets while this 0.x feature has no independent security audit." /></h3><p>Use a unique sync passphrase and keep independent exports for important work.</p><h3>Browser boundary</h3><p>Web browsers enforce CORS and cannot make arbitrary native gRPC or raw TCP requests. Some APIs require compatible CORS settings or the planned local companion.</p><div className="modal-actions"><button className="primary" onClick={close}>Done</button></div></div>}
     </section>
   </div>
 }
@@ -223,6 +224,7 @@ function App() {
   const [responseCopied, setResponseCopied] = useState(false)
   const [pasteNotice, setPasteNotice] = useState('')
   const [authUser, setAuthUser] = useState<AuthUser | null>(null)
+  const [syncState, setSyncState] = useState<'local' | 'syncing' | 'synced' | 'paused'>('local')
   const [splitPercent, setSplitPercent] = useState(42)
   const [stackedSplit, setStackedSplit] = useState(() => window.matchMedia('(max-width: 1100px)').matches)
 
@@ -240,6 +242,35 @@ function App() {
     const { data } = authClient.auth.onAuthStateChange((_event, session) => setAuthUser(session?.user ?? null))
     return () => data.subscription.unsubscribe()
   }, [])
+  useEffect(() => {
+    if (!authUser || !store.hydrated) { setSyncState('local'); return }
+    let disposed = false
+    const synchronize = async () => {
+      try {
+        const status = await getSyncStatus(authUser.id)
+        if (!status.enabled) { if (!disposed) setSyncState(status.boundToDifferentAccount ? 'paused' : 'local'); return }
+        if (!disposed) setSyncState('syncing')
+        await syncNow(authUser.id)
+        await useAppStore.getState().hydrate()
+        if (!disposed) setSyncState('synced')
+      } catch {
+        if (!disposed) setSyncState('paused')
+      }
+    }
+    const onVisible = () => { if (document.visibilityState === 'visible') void synchronize() }
+    void synchronize()
+    const interval = window.setInterval(synchronize, 30_000)
+    window.addEventListener('online', synchronize)
+    window.addEventListener('focus', synchronize)
+    document.addEventListener('visibilitychange', onVisible)
+    return () => {
+      disposed = true
+      window.clearInterval(interval)
+      window.removeEventListener('online', synchronize)
+      window.removeEventListener('focus', synchronize)
+      document.removeEventListener('visibilitychange', onVisible)
+    }
+  }, [authUser?.id, store.hydrated, store.pendingSyncCount])
 
   const prettyBody = useMemo(() => {
     if (!response) return ''
@@ -256,6 +287,13 @@ function App() {
   const variableReferences = useMemo(() => referencedVariables(draft), [draft])
   const missingVariables = variableReferences.filter((key) => !key.startsWith('$') && !Object.hasOwn(activeVariables, key))
   const bodyAllowed = !['GET', 'HEAD'].includes(draft.method)
+  const bodyContainsCredentials = useMemo(() => {
+    if (draft.bodyType !== 'json') return false
+    try {
+      const value = JSON.parse(draft.body) as unknown
+      return Boolean(value && typeof value === 'object' && ('username' in value || 'password' in value))
+    } catch { return false }
+  }, [draft.body, draft.bodyType])
   const generatedHeaders = useMemo<KeyValue[]>(() => {
     if (draft.auth?.type === 'bearer') return [{ id: 'auth-authorization', key: 'Authorization', value: `Bearer ${draft.auth.token}`, enabled: true, source: 'generated' }]
     if (draft.auth?.type === 'basic') return [{ id: 'auth-authorization', key: 'Authorization', value: `Basic ${draft.auth.username}:${draft.auth.password}`, enabled: true, source: 'generated' }]
@@ -342,13 +380,14 @@ function App() {
     setSplitPercent((current) => event.key === 'Home' ? 42 : clampSplit(current + (increase ? 3 : -3)))
   }
 
-  return <div className="app-shell">
+  return <div className="app-shell" data-sync-state={syncState}>
     <Sidebar open={sidebar} close={() => setSidebar(false)} />
     {sidebar && <button className="mobile-scrim" aria-label="Close menu" onClick={() => setSidebar(false)} />}
     <main>
-      <header className="topbar"><button className="icon-button mobile-only" aria-label="Open menu" onClick={() => setSidebar(true)}><Menu /></button><div className="mode-label"><span className="status-dot" /> Private workspace</div><div className="top-actions"><button className="environment-switch" onClick={() => setModal('variables')} title="Manage isolated environments"><i style={{ background: activeEnvironment?.color }} /><span>{activeEnvironment?.name ?? 'Variables'}</span><Tags size={14} /></button><button onClick={() => setModal('curl')}><ClipboardPaste size={16} /> <span>Import cURL</span></button><button onClick={copyCurl}><Copy size={16} /> <span>{copied ? 'Copied' : 'Copy cURL'}</span></button><button className="account-button" onClick={() => setModal('auth')} title={authUser ? 'Account' : 'Optional sign in'}>{authUser ? <UserRound size={16} /> : <LogIn size={16} />}<span>{authUser?.email?.split('@')[0] ?? 'Sign in'}</span></button><button className="icon-button" onClick={() => setModal('help')} title="Quick reference"><CircleHelp size={18} /></button><button className="icon-button" onClick={() => setDark(!dark)} title="Toggle theme">{dark ? <Sun size={18} /> : <Moon size={18} />}</button><button className="icon-button" onClick={() => setModal('settings')} title="Settings"><Settings size={18} /></button></div></header>
+      <header className="topbar"><button className="icon-button mobile-only" aria-label="Open menu" onClick={() => setSidebar(true)}><Menu /></button><div className="mode-label"><span className="status-dot" /> Private workspace</div><div className="top-actions"><button className="environment-switch" onClick={() => setModal('variables')} title="Manage isolated environments"><i style={{ background: activeEnvironment?.color }} /><span>{activeEnvironment?.name ?? 'Variables'}</span><Tags size={14} /></button><button aria-label="Import cURL" onClick={() => setModal('curl')}><ClipboardPaste size={16} /> <span>Import cURL</span></button><button onClick={copyCurl}><Copy size={16} /> <span>{copied ? 'Copied' : 'Copy cURL'}</span></button><button className="account-button" onClick={() => setModal('auth')} title={authUser ? 'Account' : 'Optional sign in'}>{authUser ? <UserRound size={16} /> : <LogIn size={16} />}<span>{authUser?.email?.split('@')[0] ?? 'Sign in'}</span></button><button className="icon-button" onClick={() => setModal('help')} title="Quick reference"><CircleHelp size={18} /></button><button className="icon-button" onClick={() => setDark(!dark)} title="Toggle theme">{dark ? <Sun size={18} /> : <Moon size={18} />}</button><button className="icon-button" onClick={() => setModal('settings')} title="Settings"><Settings size={18} /></button></div></header>
       <section className="workspace">
-        <div className="request-title"><input value={draft.name} aria-label="Request name" onChange={(event) => store.updateDraft({ name: event.target.value })} /><div><button onClick={() => store.selectRequest(newRequest())}><Plus size={16} /> New</button><button onClick={() => setModal('save')}><Save size={16} /> Save</button></div></div>
+        <nav className="request-tabs" aria-label="Open request drafts">{store.draftTabs.map((item) => <div className={item.id === draft.id ? 'active' : ''} key={item.id}><button className="request-tab-main" onClick={() => store.selectRequest(item)}><b className={`method ${item.method.toLowerCase()}`}>{item.method}</b><span>{item.name || 'Untitled request'}</span></button><button className="request-tab-close" aria-label={`Close ${item.name || 'Untitled request'}`} onClick={() => store.closeDraft(item.id)}><X size={12} /></button></div>)}<button className="new-request-tab" aria-label="New request tab" onClick={store.newDraft}><Plus size={14} /></button></nav>
+        <div className="request-title"><input value={draft.name} aria-label="Request name" onChange={(event) => store.updateDraft({ name: event.target.value })} /><div><button onClick={store.newDraft}><Plus size={16} /> New</button><button onClick={() => setModal('save')}><Save size={16} /> Save</button></div></div>
         <div className="request-bar"><div className="method-control"><select aria-label="HTTP method" className={`method-select ${draft.method.toLowerCase()}`} value={draft.method} onChange={(event) => store.updateDraft({ method: event.target.value as typeof draft.method })}>{['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'HEAD', 'OPTIONS'].map((method) => <option key={method} value={method}>{method}</option>)}</select><ChevronDown size={15} /></div><div className="url-input-wrap"><input aria-label="Request URL" placeholder="Paste a URL or cURL command" value={draft.url} onPaste={pasteIntoUrl} onChange={(event) => updateUrl(event.target.value)} onKeyDown={(event) => event.key === 'Enter' && draft.url && send()} /><UrlDetails value={draft.url} /></div><button className="send-button" disabled={busy || !draft.url} onClick={send}>{busy ? <span className="spinner" /> : <Send size={17} />}{busy ? 'Sending' : 'Send'}</button></div>
         {pasteNotice && <div className="paste-notice"><ClipboardPaste size={13} />{pasteNotice}</div>}
         {(variableReferences.length > 0 || missingVariables.length > 0) && <div className={`variable-usage ${missingVariables.length ? 'has-missing' : ''}`}><Braces size={14} /><span>{variableReferences.length} variable{variableReferences.length === 1 ? '' : 's'} from <b>{activeEnvironment?.name}</b></span>{missingVariables.length > 0 && <button onClick={() => setModal('variables')}>Add missing: {missingVariables.join(', ')}</button>}</div>}
@@ -359,7 +398,7 @@ function App() {
               {editorTab === 'params' && <PairEditor value={draft.params} onChange={updateParams} generated={generatedParams} />}
               {editorTab === 'headers' && <PairEditor value={draft.headers} onChange={updateHeaders} generated={generatedHeaders} />}
               {editorTab === 'auth' && <><AuthorizationEditor value={draft.auth} onChange={(auth) => store.updateDraft({ auth })} />{authConflict && <div className="auth-conflict">{authConflict}</div>}</>}
-              {editorTab === 'body' && <div className="body-editor">{!bodyAllowed && <div className="body-method-warning">{draft.method} requests do not send a body. Your drafted body is preserved for another method.</div>}<div className="segmented">{(['none', 'json', 'text', 'form', 'multipart'] as const).map((type) => <button key={type} disabled={!bodyAllowed} className={draft.bodyType === type ? 'active' : ''} onClick={() => updateBodyType(type)}>{type === 'text' ? 'Raw text' : type === 'form' ? 'Form URL Encoded' : type === 'multipart' ? 'Multipart' : type.toUpperCase()}</button>)}</div>{draft.bodyType === 'none' ? <div className="empty-editor">This request has no body.</div> : draft.bodyType === 'form' || draft.bodyType === 'multipart' ? <><PairEditor disabled={!bodyAllowed} value={draft.bodyFields ?? [emptyPair()]} onChange={(bodyFields) => store.updateDraft({ bodyFields })} />{draft.bodyType === 'multipart' && <p className="multipart-note">Text fields are supported now. Imported <code>@file</code> paths stay disabled because a browser requires explicit file selection. Portable file selection is the next part of this body mode.</p>}</> : <textarea disabled={!bodyAllowed} spellCheck={false} value={draft.body} onChange={(event) => store.updateDraft({ body: event.target.value })} placeholder={draft.bodyType === 'json' ? '{\n  "hello": "world"\n}' : 'Request body'} />}</div>}
+              {editorTab === 'body' && <div className="body-editor">{!bodyAllowed && <div className="body-method-warning">{draft.method} requests do not send a body. Your drafted body is preserved for another method.</div>}{bodyContainsCredentials && <div className="body-credential-note">The username/password here are API payload fields. They remain in the JSON body; the Auth tab is only for HTTP authorization such as Basic, Bearer, or API keys.</div>}<div className="segmented">{(['none', 'json', 'text', 'form', 'multipart'] as const).map((type) => <button key={type} disabled={!bodyAllowed} className={draft.bodyType === type ? 'active' : ''} onClick={() => updateBodyType(type)}>{type === 'text' ? 'Raw text' : type === 'form' ? 'Form URL Encoded' : type === 'multipart' ? 'Multipart' : type.toUpperCase()}</button>)}</div>{draft.bodyType === 'none' ? <div className="empty-editor">This request has no body.</div> : draft.bodyType === 'form' || draft.bodyType === 'multipart' ? <><PairEditor disabled={!bodyAllowed} value={draft.bodyFields ?? [emptyPair()]} onChange={(bodyFields) => store.updateDraft({ bodyFields })} />{draft.bodyType === 'multipart' && <p className="multipart-note">Text fields are supported now. Imported <code>@file</code> paths stay disabled because a browser requires explicit file selection. Portable file selection is the next part of this body mode.</p>}</> : <textarea disabled={!bodyAllowed} spellCheck={false} value={draft.body} onChange={(event) => store.updateDraft({ body: event.target.value })} placeholder={draft.bodyType === 'json' ? '{\n  "hello": "world"\n}' : 'Request body'} />}</div>}
               {editorTab === 'scripts' && <div className="script-editor"><div className="script-intro"><Braces size={16} /><span>Safe basic commands only. Open <button onClick={() => setModal('help')}>Quick reference</button> for examples.</span></div><label><span>Before request</span><textarea spellCheck={false} value={draft.preRequestScript ?? ''} onChange={(event) => store.updateDraft({ preRequestScript: event.target.value })} placeholder={'variable traceId = {{$randomUUID}}\nheader X-Trace-Id = {{traceId}}'} /></label><label><span>After response</span><textarea spellCheck={false} value={draft.postResponseScript ?? ''} onChange={(event) => store.updateDraft({ postResponseScript: event.target.value })} placeholder={'assert status == 200\ncapture token = json.data.token'} /></label></div>}
             </div>
           </section>
@@ -384,7 +423,7 @@ function App() {
     </main>
     {modal === 'variables' && <VariablesModal close={() => setModal(null)} />}
     {modal === 'help' && <HelpModal close={() => setModal(null)} />}
-    {modal === 'auth' && <AuthModal user={authUser} close={() => setModal(null)} />}
+    {modal === 'auth' && <AuthModal user={authUser} close={() => setModal(null)} onSynced={() => useAppStore.getState().hydrate()} />}
     {modal && !['variables', 'help', 'auth'].includes(modal) && <ModalPanel modal={modal as 'curl' | 'save' | 'settings'} close={() => setModal(null)} />}
   </div>
 }

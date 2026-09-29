@@ -67,7 +67,7 @@ Its deferred-update queue currently contains two scoped items: the complete brow
 
 ### Collections, files, and automation
 
-- **[M0 Must]** Collections → arbitrary nested folders → requests; duplicate, move, search, export at any node.
+- **[M1 Next]** Collections → arbitrary nested folders → requests; duplicate, move, search, export at any node. This means folders inside a collection, not nested collections. Existing `folderPath` metadata remains compatible, but creation is hidden until the sidebar can render and manage it end to end.
 - **[M0 Must]** Human-readable documented format with stable IDs, deterministic ordering, semantic diffs, and conversion tools. Evaluate [OpenCollection](https://www.opencollection.com/) before inventing a format.
 - **[M0 Must]** File System Access API where supported, plus explicit JSON/YAML import/export fallback on Safari/iOS.
 - **[M1 Should]** Pre-request/post-response scripts in a constrained worker sandbox; assertions and reusable snippets.
@@ -91,7 +91,8 @@ Its deferred-update queue currently contains two scoped items: the complete brow
 
 - **[M0 Must]** No identity in local mode. Device data is usable indefinitely without signup.
 - **[M1 Should] [Optional service]** Google and GitHub OAuth; email code/link; complete email/password signup and recovery as one deliverable. Use standards-based adapters so self-hosters can choose their own OpenID Connect provider.
-- **[M1 Should] [Optional service]** End-to-end encrypted workspace sync: encrypt on device; server stores ciphertext; recovery key belongs to the user. Exclude active secrets by default.
+- **[M1 Initial implementation] [Optional service]** End-to-end encrypted workspace sync: encrypt on device; server stores ciphertext; the passphrase-wrapped recovery key belongs to the user. Active authorization values are excluded by default.
+- **[M1 Initial implementation] [Optional service]** Sync only saved requests; keep unsaved drafts, responses, history, variable values, and never-synchronized empty collections local. Resolve same-request saved revisions by server sequence; immutable history exists, while user-facing bounded undo remains to be added.
 - **[M2 Later] [Optional service]** Passkeys, device pairing, shared encrypted workspaces, append-only revision log.
 - **[Out of scope]** Mobile SMS OTP. Reliable delivery is a metered telecom service and abuse target, so it is deliberately excluded from the reference app. Prefer email links, passkeys/TOTP, or OAuth.
 
@@ -99,7 +100,7 @@ Near-future prerequisites, to surface when choosing the next work item:
 
 - **[M1 Should]** Test Supabase Auth without storing application data: email signup/sign-in/sign-out, confirmation, magic link, password recovery, Google/GitHub callbacks, expired links, invalid redirects, and session restoration.
 - **[M1 Should]** Add email/password signup, sign-in, forgot-password/recovery, confirmation/error handling, and tests together; do not expose a partial password flow. Follow the deferred implementation section in [Auth setup](AUTH_SETUP.md#deferred-emailpassword-implementation).
-- **[M1 Should] [Optional service]** Design encrypted synchronization and RLS together before claiming that login backs up user work. See [Encrypted sync plan](ENCRYPTED_SYNC_PLAN.md).
+- **[M1 Done for single owner] [Optional service]** Encrypted synchronization and RLS ship together and are exercised by a real two-browser local-Supabase test. See [Encrypted sync plan](ENCRYPTED_SYNC_PLAN.md).
 - **[M0 Must]** Introduce the reusable browser regression framework described in [Regression testing plan](REGRESSION_TESTING_PLAN.md); automate local mode first and keep live-provider Auth tests in a separately configured suite.
 
 ## Delivery roadmap
@@ -124,7 +125,7 @@ Java 25 LTS localhost companion, native unrestricted HTTP, native gRPC, certific
 
 ### Phase 3 — optional accounts (after local core)
 
-Adapter-based auth, client-side encryption, revision sync, device pairing, Google/GitHub/email methods. Build the self-host reference service as a Java 25 LTS/Spring Boot modular monolith, not a microservice fleet. Self-host configuration and migration/export docs ship with cloud beta.
+Adapter-based auth, client-side encryption, revision sync, device pairing, Google/GitHub/email methods. Complete the Supabase/PostgreSQL reference adapter first while keeping the encrypted revision contract provider-neutral. Add a Java 25/Spring Boot modular-monolith alternative only when a concrete portability or custom-service requirement justifies it. Self-host configuration and migration/export docs ship with cloud beta.
 
 **Exit:** Turning sync off leaves a fully useful application and a complete local export.
 

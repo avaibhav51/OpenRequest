@@ -2,7 +2,7 @@
 
 ## Status
 
-Foundation implemented. The Vitest suite covers pure request-processing logic, while Playwright now drives the production build in Chromium, WebKit, and a mobile Chromium profile. The deterministic suite verifies the `/OpenRequest/` deployment path, bundled logo/default collection, URL/Params synchronization, request/response flow, response clearing, IndexedDB persistence, theme persistence, PWA manifest, and Chromium service-worker registration.
+Foundation implemented. The Vitest suite covers pure request-processing logic, while Playwright now drives the production build in Chromium, WebKit, and a mobile Chromium profile. The deterministic suite verifies the `/OpenRequest/` deployment path, bundled logo/default collection, URL/Params synchronization, request/response flow, response clearing, persistent multi-request editor tabs, formatted JSON cURL import, IndexedDB persistence, theme persistence, PWA manifest, and Chromium service-worker registration.
 
 Responsive regressions also exercise empty tablet/mobile portrait workspaces, assert that the document does not exceed the visible viewport, verify that the closed sidebar casts no shadow into the workspace and its opened footer remains reachable, and confirm keyboard resizing of the stacked request/response divider.
 
@@ -12,7 +12,27 @@ URL-details coverage verifies that no persistent duplicate URL consumes editor s
 
 Theme coverage verifies persistent switching, WCAG-readable primary and secondary light-mode contrast, coordinated page/panel/reading surfaces, restrained light-only panel depth, and preservation of the flat dark-mode surface treatment.
 
-The test-only Node server mounts `dist` at `/OpenRequest/` and provides same-origin JSON and XML fixture APIs. Regression coverage confirms theme-aware tokens in the formatted response and an unchanged, uncolored Raw payload, without depending on public APIs, accounts, email delivery, or Supabase. GitHub Actions installs the browsers, runs the suite, and retains the HTML report plus failure screenshots, video, and traces.
+The test-only Node server mounts `dist` at `/OpenRequest/` and provides same-origin JSON and XML fixture APIs. Regression coverage confirms theme-aware tokens in the formatted response, an unchanged uncolored Raw payload, and persistence of the metadata-only sync outbox after reload—without depending on public APIs, accounts, email delivery, or Supabase. GitHub Actions installs the browsers, runs the suite, and retains the HTML report plus failure screenshots, video, and traces.
+
+The database-security CI job installs the repository's locked npm dependencies before running the public Data API isolation script because that script imports the checked-in `@supabase/supabase-js` dependency. The SQL-only pgTAP step does not require Node packages, but both checks intentionally run in the same prepared job.
+
+Saved-request coverage verifies that editing or sending an unsaved draft creates no outbox entry, the first explicit save queues one request, repeated saves coalesce by request identity, a second saved request remains independent, a saved request filed in a collection queues both objects, and a never-synchronized empty collection remains browser-private. A separately gated real-Supabase test verifies encrypted transport between two browser profiles.
+
+## Synchronization expectation audit
+
+| User expectation | Current status | Automated evidence / missing work |
+| --- | --- | --- |
+| Trusted existing browser normally restores its account session | Partially implemented | Supabase client requests the persisted session, but mocked browser lifecycle and real disposable-project tests are still missing. |
+| Unsaved edited requests stay local | Implemented | Browser regression proves edits and sends do not enter the outbox. |
+| Only an explicit save becomes sync-eligible | Implemented | Browser regression proves the request outbox entry appears only after Save; the two-profile suite proves it then uploads. |
+| Repeated saves of one request do not create competing local entries | Implemented locally | Unit and browser tests prove stable-key outbox coalescing. |
+| Different request IDs never conflict | Implemented | Object-scoped outbox and revision identities are independent locally and remotely. |
+| Never-synchronized empty collections stay private to one browser | Implemented | Desktop, WebKit, and mobile browser regression proves collection creation does not enter the outbox. |
+| Same-request conflicts resolve by server order, with bounded undo | Partially implemented | Server identity sequence determines latest-wins and immutable older revisions remain stored. A user-facing version-history/undo control is still missing. |
+| Changes synchronize automatically across alternating devices | Implemented for the single-owner flow | A real two-profile Chromium test proves encrypted upload/download, saved-only behavior, server-sequenced latest-wins, and collection tombstones against local Supabase. Extended retry/offline coverage remains. |
+| A new device can unlock an existing encrypted workspace once | Implemented with a sync passphrase | The two-profile suite creates on device one and unlocks once on device two. Passkey/device transfer remains later. |
+| Alice cannot read or mutate Bob's data | Implemented and tested | pgTAP and public Data API suites exercise RLS; the PWA transport uses the same owner-scoped tables. |
+| Sign-out/account switching cannot leak one local workspace into another account | Implemented guard | Enable/unlock creates an immutable owner binding; a mismatched account pauses before transport. Additional browser UI coverage remains. |
 
 ## Recommended framework
 
@@ -62,6 +82,12 @@ Run manually or on a protected schedule against a dedicated disposable Supabase 
 
 Keep live credentials in protected CI secrets, never in source or browser-facing `VITE_` variables except the expected publishable key. Delete created users/data after a run. Live-provider failures should not make ordinary local pull requests flaky.
 
+### Local multi-user RLS security
+
+The checked-in `supabase/tests/database/sync_rls.test.sql` suite runs against the free local Supabase stack and uses 23 pgTAP checks to impersonate anonymous, Alice, and Bob sessions. It validates owner access, cross-user denial, append-only permissions, idempotency, concurrent client sequences, encryption algorithm/nonce/payload constraints, and server-owned timestamps. `npm run test:db:api` additionally signs in two disposable local users through Supabase Auth and verifies owner isolation through the public Data API. Run both after `supabase start`; CI runs the same suites in disposable containers on every push and pull request.
+
+This suite is separate from browser regression on purpose: browser tests prove UI/local persistence, while database tests prove authorization at the storage boundary. Once encrypted transport exists, add an integration layer that uploads/downloads through the public client API as two users; keep the direct RLS suite as the lower-level security regression.
+
 ## Implementation sequence
 
 1. **Done:** Add Playwright and a `test:e2e` command.
@@ -70,7 +96,8 @@ Keep live credentials in protected CI secrets, never in source or browser-facing
 4. **Done:** Cover a critical request happy path and persistence after reload.
 5. **Started:** Add a mobile project; mocked error and edge cases remain.
 6. **Done:** Add a GitHub Actions job with report/trace/screenshot/video artifacts on failure.
-7. Introduce a separately gated live-auth project.
+7. **Started:** Add local two-user database/RLS tests; encrypted client integration remains pending.
+8. Introduce a separately gated live-auth project.
 
 Next additions should cover cURL import, authorization/body combinations, variables/scripts, collection export/import, offline reload, keyboard/accessibility checks, and mocked Auth contract states. Live Supabase tests remain separately gated.
 

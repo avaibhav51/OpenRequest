@@ -6,6 +6,10 @@ Created by [Vaibhav Agarwal](https://avaibhav51.github.io).
 
 The current app is a React/Vite PWA. It stores data in your browser by default and can optionally enable login through a hosted or self-hosted Supabase Auth project.
 
+Cross-device synchronization is not enabled yet. The codebase now includes its first offline-safe foundation: versioned local entities and a metadata-only mutation outbox for collections, requests, and environments. It performs no network upload, and history plus environment-variable values remain excluded.
+
+Optional sync includes an owner-bound local workspace record, passphrase-wrapped workspace key, AES-GCM revisions with authenticated object context, automatic upload/download, server-sequenced latest-wins, collection tombstones, cross-tab locking, and database/public-API isolation tests. Active authorization values are stripped before encryption; unsaved drafts, responses, history, and variable values remain local.
+
 ## What you can do today
 
 - Send REST requests through the browser Fetch API.
@@ -15,11 +19,12 @@ The current app is a React/Vite PWA. It stores data in your browser by default a
 - Use query params, headers, JSON/raw, URL-encoded form, and multipart text-field bodies with common HTTP methods.
 - Configure No Auth, Bearer/JWT, Basic Auth, or API Key authorization per request, including environment-variable values.
 - Paste a URL or cURL command into the URL bar and let the app fill the request, including Bearer/Basic authorization and form fields.
+- Keep multiple unsaved requests open in local, persistent editor tabs. Imported JSON is formatted when valid; JSON username/password fields remain request payload rather than being incorrectly converted to HTTP Auth.
 - Inspect protocol, host/port, path, endpoint, recognized path placeholders, and query keys/values through a subtle theme-aware URL-details popover shown on field hover/focus or from its details button.
 - Keep URL query parameters and the Params editor synchronized in both directions.
 - See generated Content-Type/Auth values and authorization conflicts before sending.
 - Keep drafted bodies when switching methods while clearly preventing GET/HEAD from sending them.
-- Save local collections, nested folder paths, and recent history.
+- Save local collections and recent history. Nested folders inside a collection are deferred until the sidebar can display and manage the hierarchy; the misleading save field is hidden in the meantime.
 - Start with the bundled public API example collection.
 - Use environment-tagged variables with isolated values, `{{variable}}` substitution, built-ins, and secret masking.
 - Run basic safe scripts for assertions, temporary request changes, and response capture.
@@ -73,9 +78,13 @@ npm run build
 npm run preview
 npx playwright install chromium webkit  # once per development machine
 npm run test:e2e
+npm run test:db                 # optional local Supabase/RLS suite
+npm run test:db:api             # while the local Supabase stack is running
 ```
 
 `test:e2e` builds the production PWA at the same `/OpenRequest/` subpath used by GitHub Pages, starts a deterministic local fixture server, and runs Chromium, WebKit, and a mobile Chromium profile. It does not call public demo APIs or require Supabase credentials. Failure artifacts are written to the ignored `playwright-report/` and `test-results/` directories.
+
+The optional database suites start from the checked-in Supabase migrations. `test:db` runs 23 pgTAP policy/schema checks; `test:db:api` provisions disposable confirmed Alice/Bob users through the local admin API, signs both in through normal public password Auth, and repeats owner-isolation checks through the public Data API. Deterministic provisioning avoids signup/email throttling in CI while authorization assertions still use ordinary user sessions. They need the free Supabase CLI and a Docker-compatible local runtime, and never use a hosted project or real email addresses. Setup and exact coverage are in [Future encrypted synchronization and RLS](docs/ENCRYPTED_SYNC_PLAN.md#run-the-local-multi-user-security-tests).
 
 Local app data is stored in the current browser profile, mainly in IndexedDB database `open-request-workbench`. Clearing site data removes it, so export anything important.
 
@@ -125,21 +134,22 @@ VITE_SUPABASE_URL=https://YOUR_PROJECT.supabase.co
 VITE_SUPABASE_ANON_KEY=YOUR_PUBLIC_ANON_OR_PUBLISHABLE_KEY
 ```
 
-Then configure the providers in Supabase Auth and restart the dev server. Adding the URL and public key connects the frontend to the project; it does not automatically configure Google/GitHub OAuth, production email delivery, redirects, CAPTCHA, or future collection sync.
+Then apply the checked-in Supabase migrations, configure the providers in Supabase Auth, and restart the dev server. Adding the URL and public key connects the frontend to the project; it does not automatically configure the database schema, Google/GitHub OAuth, production email delivery, redirects, CAPTCHA, or abuse controls.
 
-For hosted builds, the deployer supplies these two public values once as hosting build variables; individual users do not provide them. Self-hosters who want their own independent login/sync service supply values from their own Supabase project. The official OpenRequest deployment intentionally omits these variables for now, so it remains local-only and exposes no shared Supabase project to misuse. The current login adapter is experimental and does not upload local data.
+For hosted builds, the deployer supplies these two public values once as hosting build variables; individual users do not provide them. Self-hosters who want their own independent login/sync service supply values from their own Supabase project and apply the checked-in migrations. The official OpenRequest deployment intentionally omits these variables for now, so it remains local-only and exposes no shared Supabase project to misuse. In a configured deployment, signing in still uploads nothing until the user explicitly enables encrypted sync and creates or enters a sync passphrase.
 
 Read:
 
 - [Optional authentication setup](docs/AUTH_SETUP.md)
 - [Auth data, storage, and costs](docs/AUTH_DATA_AND_COSTS.md)
+- [Deferred operator checklist for enabling sync](docs/AUTH_SETUP.md#deferred-operator-checklist-enable-sync-later)
 
 Important short version:
 
 - Google, GitHub, and email auth can usually be tested on free tiers.
 - Phone/SMS OTP is intentionally not included because reliable delivery normally needs a paid provider and abuse controls.
 - Password login is not exposed yet; it remains deferred until signup, recovery, expired-link handling, and regression tests ship together. When enabled later, passwords will be handled by Supabase Auth rather than stored in this frontend.
-- The Supabase URL and publishable/anon key are public application identifiers, not administrator credentials. Protect future database tables with Row Level Security and never expose a secret/service-role key.
+- The Supabase URL and publishable/anon key are public application identifiers, not administrator credentials. The checked-in sync tables use Row Level Security; never expose a secret/service-role key.
 - API secrets that you type into variables are currently only browser-local and masked, not encrypted at rest.
 
 ## Request authorization

@@ -6,7 +6,7 @@ This project is designed so login is optional. Local mode works without any iden
 
 | Data | No login / local mode | Optional Supabase Auth mode |
 | --- | --- | --- |
-| Collections, folders, history, requests | Browser IndexedDB database `open-request-workbench` | Still browser IndexedDB today. Sync is not implemented. |
+| Collections, folders, history, requests | Browser IndexedDB database `open-request-workbench` | Saved requests and referenced collection metadata can optionally sync as encrypted revisions; history and unsaved drafts remain local. |
 | Active theme, selected environment, default seed flags | Browser localStorage | Browser localStorage |
 | Secret variables | Browser IndexedDB, visually masked, excluded from normal collection export | Same today |
 | Supabase URL and anon key | Not used | `.env.local` during development or public frontend build variables in hosting |
@@ -16,6 +16,7 @@ This project is designed so login is optional. Local mode works without any iden
 | Email and user identity metadata | Not used | Supabase Auth database `auth` schema |
 | Google/GitHub OAuth secrets | Not used | Stored in Supabase/provider configuration, not in this frontend repository |
 | SMTP provider credentials | Not used | Supabase hosted project settings or self-hosted server environment |
+| Encrypted sync tables | Not present | Used only after an operator applies `supabase/migrations` and a user explicitly enables encrypted sync |
 
 Supabase documents that browser sessions use access and refresh tokens, and its JavaScript client persists sessions in localStorage by default. See [Supabase sessions](https://supabase.com/docs/guides/auth/sessions) and the [Supabase JavaScript auth reference](https://supabase.com/docs/reference/javascript/auth).
 
@@ -23,7 +24,9 @@ Supabase documents that browser sessions use access and refresh tokens, and its 
 
 The current `0.x` app masks secret values in the UI, but it does not encrypt browser storage at rest. That means local device access, browser compromise, malicious extensions, or an XSS bug could expose local API secrets. Use test credentials or short-lived credentials until encrypted workspaces are implemented.
 
-Signing in does not upload existing local collections. It only creates an account session.
+Signing in alone does not upload existing local collections. Explicitly enabling encrypted sync creates or unlocks the encrypted workspace and starts synchronization.
+
+The session tokens live in browser storage because this is a client-side PWA. That makes prevention of XSS, dependency compromise, unsafe third-party scripts, token logging, and malicious extensions especially important. Signing out invalidates/removes the selected Auth session but must not be confused with deleting local IndexedDB data, deleting a cloud account, or destroying future encryption recovery material.
 
 ## Phone OTP cost
 

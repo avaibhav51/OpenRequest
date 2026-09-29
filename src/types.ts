@@ -16,6 +16,7 @@ export type RequestAuth =
 
 export interface RequestDraft {
   id: string
+  schemaVersion: 1
   name: string
   method: HttpMethod
   url: string
@@ -34,6 +35,7 @@ export interface RequestDraft {
 
 export interface Environment {
   id: string
+  schemaVersion: 1
   name: string
   color: string
   createdAt: number
@@ -51,6 +53,7 @@ export interface WorkspaceVariable {
 
 export interface Collection {
   id: string
+  schemaVersion: 1
   name: string
   description: string
   createdAt: number
@@ -83,6 +86,7 @@ export const emptyPair = (): KeyValue => ({ id: uid(), key: '', value: '', enabl
 
 export const newRequest = (): RequestDraft => ({
   id: uid(),
+  schemaVersion: 1,
   name: 'Untitled request',
   method: 'GET',
   url: '',

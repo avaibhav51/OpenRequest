@@ -9,7 +9,21 @@ describe('cURL conversion', () => {
     expect(result.url).toBe('https://api.example.com/users?active=true')
     expect(result.params?.[0]).toMatchObject({ key: 'active', value: 'true' })
     expect(result.bodyType).toBe('json')
+    expect(result.body).toBe('{\n  "name": "Ada"\n}')
     expect(result.headers?.find((header) => header.key === 'X-Key')?.value).toBe('demo')
+  })
+
+  it('imports browser-pasted long options and markdown-linked URLs', () => {
+    const result = parseCurl(`curl --request POST \\\--url [https://example.com/login](https://example.com/login) \\
+--header 'Content-Type: application/json' \\
+--data '{ "username": "demo", "password": "secret" }'`)
+    expect(result).toMatchObject({
+      method: 'POST',
+      url: 'https://example.com/login',
+      bodyType: 'json',
+      auth: undefined,
+      body: '{\n  "username": "demo",\n  "password": "secret"\n}'
+    })
   })
 
   it('infers POST when data is present', () => {
@@ -22,7 +36,8 @@ describe('cURL conversion', () => {
       body: '{"name":"Grace"}', headers: [{ id: '1', key: 'X-Key', value: 'abc', enabled: true }]
     }
     const imported = parseCurl(toCurl(request))
-    expect(imported).toMatchObject({ method: request.method, url: request.url, body: request.body })
+    expect(imported).toMatchObject({ method: request.method, url: request.url })
+    expect(JSON.parse(imported.body ?? '')).toEqual(JSON.parse(request.body))
   })
 
   it('includes configured authorization when copying cURL', () => {
