@@ -19,11 +19,12 @@ Optional sync includes an owner-bound local workspace record, passphrase-wrapped
 - Use query params, headers, JSON/raw, URL-encoded form, and multipart text-field bodies with common HTTP methods.
 - Configure No Auth, Bearer/JWT, Basic Auth, or API Key authorization per request, including environment-variable values.
 - Paste a URL or cURL command into the URL bar and let the app fill the request, including Bearer/Basic authorization and form fields.
+- Keep multiple unsaved requests open in local, persistent editor tabs. Imported JSON is formatted when valid; JSON username/password fields remain request payload rather than being incorrectly converted to HTTP Auth.
 - Inspect protocol, host/port, path, endpoint, recognized path placeholders, and query keys/values through a subtle theme-aware URL-details popover shown on field hover/focus or from its details button.
 - Keep URL query parameters and the Params editor synchronized in both directions.
 - See generated Content-Type/Auth values and authorization conflicts before sending.
 - Keep drafted bodies when switching methods while clearly preventing GET/HEAD from sending them.
-- Save local collections, nested folder paths, and recent history.
+- Save local collections and recent history. Nested folders inside a collection are deferred until the sidebar can display and manage the hierarchy; the misleading save field is hidden in the meantime.
 - Start with the bundled public API example collection.
 - Use environment-tagged variables with isolated values, `{{variable}}` substitution, built-ins, and secret masking.
 - Run basic safe scripts for assertions, temporary request changes, and response capture.
@@ -83,7 +84,7 @@ npm run test:db:api             # while the local Supabase stack is running
 
 `test:e2e` builds the production PWA at the same `/OpenRequest/` subpath used by GitHub Pages, starts a deterministic local fixture server, and runs Chromium, WebKit, and a mobile Chromium profile. It does not call public demo APIs or require Supabase credentials. Failure artifacts are written to the ignored `playwright-report/` and `test-results/` directories.
 
-The optional database suites start from the checked-in Supabase migrations. `test:db` runs 23 pgTAP policy/schema checks; `test:db:api` creates disposable local Alice/Bob sessions and repeats owner-isolation checks through the public API. They need the free Supabase CLI and a Docker-compatible local runtime, and never use a hosted project or real email addresses. Setup and exact coverage are in [Future encrypted synchronization and RLS](docs/ENCRYPTED_SYNC_PLAN.md#run-the-local-multi-user-security-tests).
+The optional database suites start from the checked-in Supabase migrations. `test:db` runs 23 pgTAP policy/schema checks; `test:db:api` provisions disposable confirmed Alice/Bob users through the local admin API, signs both in through normal public password Auth, and repeats owner-isolation checks through the public Data API. Deterministic provisioning avoids signup/email throttling in CI while authorization assertions still use ordinary user sessions. They need the free Supabase CLI and a Docker-compatible local runtime, and never use a hosted project or real email addresses. Setup and exact coverage are in [Future encrypted synchronization and RLS](docs/ENCRYPTED_SYNC_PLAN.md#run-the-local-multi-user-security-tests).
 
 Local app data is stored in the current browser profile, mainly in IndexedDB database `open-request-workbench`. Clearing site data removes it, so export anything important.
 

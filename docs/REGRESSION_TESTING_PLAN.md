@@ -2,7 +2,7 @@
 
 ## Status
 
-Foundation implemented. The Vitest suite covers pure request-processing logic, while Playwright now drives the production build in Chromium, WebKit, and a mobile Chromium profile. The deterministic suite verifies the `/OpenRequest/` deployment path, bundled logo/default collection, URL/Params synchronization, request/response flow, response clearing, IndexedDB persistence, theme persistence, PWA manifest, and Chromium service-worker registration.
+Foundation implemented. The Vitest suite covers pure request-processing logic, while Playwright now drives the production build in Chromium, WebKit, and a mobile Chromium profile. The deterministic suite verifies the `/OpenRequest/` deployment path, bundled logo/default collection, URL/Params synchronization, request/response flow, response clearing, persistent multi-request editor tabs, formatted JSON cURL import, IndexedDB persistence, theme persistence, PWA manifest, and Chromium service-worker registration.
 
 Responsive regressions also exercise empty tablet/mobile portrait workspaces, assert that the document does not exceed the visible viewport, verify that the closed sidebar casts no shadow into the workspace and its opened footer remains reachable, and confirm keyboard resizing of the stacked request/response divider.
 

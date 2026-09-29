@@ -20,6 +20,7 @@ export interface SyncedEntityMarker {
 class WorkbenchDatabase extends Dexie {
   collections!: EntityTable<Collection, 'id'>
   requests!: EntityTable<RequestDraft, 'id'>
+  editorDrafts!: EntityTable<RequestDraft, 'id'>
   history!: EntityTable<HistoryEntry, 'id'>
   environments!: EntityTable<Environment, 'id'>
   variables!: EntityTable<WorkspaceVariable, 'id'>
@@ -78,6 +79,18 @@ class WorkbenchDatabase extends Dexie {
     this.version(6).stores({
       collections: 'id, name, createdAt',
       requests: 'id, collectionId, updatedAt',
+      history: 'id, createdAt',
+      environments: 'id, name, createdAt',
+      variables: 'id, environmentId, [environmentId+key], updatedAt',
+      syncOutbox: 'id, [entityType+entityId], state, updatedAt',
+      syncBindings: 'id, ownerId, remoteWorkspaceId, state',
+      syncSecrets: 'id, updatedAt',
+      syncedEntities: 'id, [entityType+entityId], syncedAt'
+    })
+    this.version(7).stores({
+      collections: 'id, name, createdAt',
+      requests: 'id, collectionId, updatedAt',
+      editorDrafts: 'id, updatedAt',
       history: 'id, createdAt',
       environments: 'id, name, createdAt',
       variables: 'id, environmentId, [environmentId+key], updatedAt',

@@ -14,22 +14,28 @@ const readSupabaseStatus = () => {
 const status = readSupabaseStatus()
 const url = status.API_URL
 const publicKey = status.PUBLISHABLE_KEY ?? status.ANON_KEY
-if (!url || !publicKey) throw new Error('Start the local Supabase stack before running the public API test.')
+const adminKey = status.SECRET_KEY ?? status.SERVICE_ROLE_KEY
+if (!url || !publicKey || !adminKey) throw new Error('Start the local Supabase stack before running the public API test.')
 
 const suffix = crypto.randomUUID()
 const credentials = (name) => ({ email: `${name}-${suffix}@example.test`, password: `Local-only-${crypto.randomUUID()}-Aa1!` })
+const admin = createClient(url, adminKey, { auth: { persistSession: false, autoRefreshToken: false } })
 const alice = createClient(url, publicKey, { auth: { persistSession: false, autoRefreshToken: false } })
 const bob = createClient(url, publicKey, { auth: { persistSession: false, autoRefreshToken: false } })
 
-const signUp = async (client, name) => {
-  const { data, error } = await client.auth.signUp(credentials(name))
+const provisionAndSignIn = async (client, name) => {
+  const login = credentials(name)
+  const { data: created, error: createError } = await admin.auth.admin.createUser({ ...login, email_confirm: true })
+  if (createError) throw new Error(`Could not provision local ${name}: ${createError.message}`)
+  const { data, error } = await client.auth.signInWithPassword(login)
   if (error) throw error
-  if (!data.user || !data.session) throw new Error(`Local ${name} signup did not return an authenticated session.`)
+  if (!data.user || !data.session) throw new Error(`Local ${name} sign-in did not return an authenticated session.`)
+  if (created.user.id !== data.user.id) throw new Error(`Local ${name} authenticated as an unexpected user.`)
   return data.user
 }
 
-const aliceUser = await signUp(alice, 'alice')
-await signUp(bob, 'bob')
+const aliceUser = await provisionAndSignIn(alice, 'alice')
+await provisionAndSignIn(bob, 'bob')
 const workspaceId = crypto.randomUUID()
 
 const { error: workspaceError } = await alice.from('sync_workspaces').insert({ id: workspaceId, owner_id: aliceUser.id })

@@ -67,7 +67,7 @@ Its deferred-update queue currently contains two scoped items: the complete brow
 
 ### Collections, files, and automation
 
-- **[M0 Must]** Collections → arbitrary nested folders → requests; duplicate, move, search, export at any node.
+- **[M1 Next]** Collections → arbitrary nested folders → requests; duplicate, move, search, export at any node. This means folders inside a collection, not nested collections. Existing `folderPath` metadata remains compatible, but creation is hidden until the sidebar can render and manage it end to end.
 - **[M0 Must]** Human-readable documented format with stable IDs, deterministic ordering, semantic diffs, and conversion tools. Evaluate [OpenCollection](https://www.opencollection.com/) before inventing a format.
 - **[M0 Must]** File System Access API where supported, plus explicit JSON/YAML import/export fallback on Safari/iOS.
 - **[M1 Should]** Pre-request/post-response scripts in a constrained worker sandbox; assertions and reusable snippets.

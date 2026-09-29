@@ -56,7 +56,11 @@ const decodeBasic = (value: string) => {
 }
 
 export function parseCurl(command: string): Partial<RequestDraft> {
-  const parts = tokenize(command.replace(/\\\r?\n/g, ' '))
+  const normalized = command.replace(/\\\r?\n/g, ' ').replace(/\\(?=--)/g, '')
+  const parts = tokenize(normalized).map((part) => {
+    const markdownLink = part.match(/^\[([^\]]+)]\(([^)]+)\)$/)
+    return markdownLink ? markdownLink[2] : part
+  })
   if (parts[0]?.toLowerCase() !== 'curl') throw new Error('Paste a command beginning with curl.')
 
   let method: HttpMethod | undefined
@@ -94,12 +98,16 @@ export function parseCurl(command: string): Partial<RequestDraft> {
     if (auth) headers.splice(authorizationAt, 1)
   }
 
-  const body = dataParts.join('&')
+  const rawBody = dataParts.join('&')
   const contentType = headers.find((header) => header.key.toLowerCase() === 'content-type')?.value ?? ''
   const contentBodyType = bodyTypeFromContentType(contentType)
   const bodyType: RequestDraft['bodyType'] = formParts.length ? 'multipart'
-    : !body ? 'none'
-      : contentBodyType ?? (/^[{[]/.test(body.trim()) ? 'json' : 'form')
+    : !rawBody ? 'none'
+      : contentBodyType ?? (/^[{[]/.test(rawBody.trim()) ? 'json' : 'form')
+  let body = rawBody
+  if (bodyType === 'json') {
+    try { body = JSON.stringify(JSON.parse(rawBody), null, 2) } catch { /* Preserve invalid or templated JSON verbatim. */ }
+  }
   const bodyFields = formParts.length
     ? [...formParts.map((field) => { const [key, value] = splitField(field); return { id: uid(), key, value, enabled: !value.startsWith('@') } }), emptyPair()]
     : bodyType === 'form' ? formFieldsFromBody(body) : [emptyPair()]

@@ -46,7 +46,7 @@ test('keeps a newly created empty collection local and out of the sync queue', a
   const closeMenu = page.locator('.sidebar .brand').getByRole('button', { name: 'Close menu' })
   if (await closeMenu.isVisible()) await closeMenu.click()
   await page.getByTitle('Settings').click()
-  await expect(page.getByRole('dialog', { name: 'Workspace settings' })).toContainText('0 local changes waiting in the offline outbox')
+  await expect(page.getByRole('dialog', { name: 'Workspace settings' })).toContainText('0 local changes waiting to sync')
 })
 
 test('shows detailed security help without clipping and keeps short copy inline', async ({ page }) => {
@@ -64,6 +64,31 @@ test('shows detailed security help without clipping and keeps short copy inline'
   expect(box!.x + box!.width).toBeLessThanOrEqual(viewport!.width)
   expect(box!.y + box!.height).toBeLessThanOrEqual(viewport!.height)
   await expect(page.getByRole('heading', { name: 'Browser boundary' }).getByRole('button')).toHaveCount(0)
+})
+
+test('imports formatted JSON into a persistent request tab without treating payload credentials as HTTP auth', async ({ page }) => {
+  const command = `curl --request POST \\
+--url https://example.com/login \\
+--header 'Content-Type: application/json' \\
+--header 'accept: application/json' \\
+--data '{ "username": "demo", "password": "secret" }'`
+  await page.getByRole('button', { name: 'Import cURL' }).click()
+  await page.getByRole('dialog', { name: 'Import cURL' }).getByLabel('cURL command').fill(command)
+  await page.getByRole('button', { name: 'Import request' }).click()
+
+  await expect(page.getByLabel('Request URL')).toHaveValue('https://example.com/login')
+  await page.locator('.request-editor .tabbar button').filter({ hasText: /^body/i }).click()
+  await expect(page.locator('.body-editor textarea')).toHaveValue('{\n  "username": "demo",\n  "password": "secret"\n}')
+  await expect(page.locator('.body-credential-note')).toContainText('API payload fields')
+  await page.locator('.request-editor .tabbar button').filter({ hasText: /^auth/i }).click()
+  await expect(page.getByLabel('Type')).toHaveValue('none')
+
+  await page.getByRole('button', { name: 'New request tab' }).click()
+  await expect(page.locator('.request-tabs > div')).toHaveCount(2)
+  await page.reload()
+  await expect(page.locator('.request-tabs > div')).toHaveCount(2)
+  await page.getByRole('button', { name: 'POST login' }).click()
+  await expect(page.getByLabel('Request URL')).toHaveValue('https://example.com/login')
 })
 
 test('queues only explicit saves and coalesces edits per saved request', async ({ page }) => {
@@ -91,7 +116,7 @@ test('queues only explicit saves and coalesces edits per saved request', async (
   expect(secondSave[0].entityId).toBe(firstSave[0].entityId)
   expect(secondSave[0].updatedAt).toBeGreaterThanOrEqual(firstSave[0].updatedAt)
 
-  await page.getByRole('button', { name: 'New' }).click()
+  await page.getByRole('button', { name: 'New', exact: true }).click()
   await page.getByLabel('Request name').fill('Second saved request')
   await page.getByLabel('Request URL').fill(apiUrl)
   await page.getByRole('button', { name: 'Save', exact: true }).click()
@@ -135,20 +160,21 @@ test('persists a saved request in IndexedDB across reload', async ({ page }) => 
   await page.getByRole('button', { name: 'Save', exact: true }).click()
 
   const dialog = page.getByRole('dialog', { name: 'Save request' })
+  await expect(dialog.getByLabel(/Folder path/i)).toHaveCount(0)
   await dialog.getByLabel('Collection').selectOption({ label: 'test-apis-public' })
   await dialog.getByRole('button', { name: 'Save locally' }).click()
   await openSidebarIfNeeded(page)
-  await expect(page.getByText('Regression profile', { exact: true })).toBeVisible()
+  await expect(page.locator('.sidebar').getByText('Regression profile', { exact: true })).toBeVisible()
 
   await page.reload()
   await openSidebarIfNeeded(page)
-  await expect(page.getByText('Regression profile', { exact: true })).toBeVisible()
-  await page.getByText('Regression profile', { exact: true }).click()
+  await expect(page.locator('.sidebar').getByText('Regression profile', { exact: true })).toBeVisible()
+  await page.locator('.sidebar').getByText('Regression profile', { exact: true }).click()
   await expect(page.getByLabel('Request URL')).toHaveValue(apiUrl)
 
   await page.getByTitle('Settings').click()
-  await expect(page.getByRole('dialog', { name: 'Workspace settings' })).toContainText('2 local changes waiting in the offline outbox')
-  await expect(page.getByRole('dialog', { name: 'Workspace settings' })).toContainText('Nothing is uploaded unless you sign in and explicitly enable encrypted sync')
+  await expect(page.getByRole('dialog', { name: 'Workspace settings' })).toContainText('2 local changes waiting to sync')
+  await expect(page.getByRole('dialog', { name: 'Workspace settings' })).toContainText('Only explicitly saved requests')
 })
 
 test('persists the selected theme', async ({ page }) => {

@@ -18,6 +18,7 @@ interface AppState {
   variables: WorkspaceVariable[]
   activeEnvironmentId: string
   draft: RequestDraft
+  draftTabs: RequestDraft[]
   response?: ResponseSnapshot
   error?: string
   busy: boolean
@@ -25,6 +26,8 @@ interface AppState {
   pendingSyncCount: number
   hydrate: () => Promise<void>
   updateDraft: (patch: Partial<RequestDraft>) => void
+  newDraft: () => void
+  closeDraft: (id: string) => void
   selectRequest: (request: RequestDraft) => void
   saveDraft: () => Promise<void>
   addCollection: (name: string) => Promise<void>
@@ -41,12 +44,16 @@ interface AppState {
   captureVariable: (key: string, value: string) => Promise<void>
 }
 
+const initialDraft = newRequest()
+const activeDraftKey = 'active-editor-draft'
+
 export const useAppStore = create<AppState>((set, get) => ({
-  collections: [], requests: [], history: [], environments: [], variables: [], activeEnvironmentId: '', draft: newRequest(), busy: false, hydrated: false, pendingSyncCount: 0,
+  collections: [], requests: [], history: [], environments: [], variables: [], activeEnvironmentId: '', draft: initialDraft, draftTabs: [initialDraft], busy: false, hydrated: false, pendingSyncCount: 0,
   hydrate: async () => {
-    let [collections, requests, history, storedEnvironments, variables, pendingSyncCount] = await Promise.all([
+    let [collections, requests, editorDrafts, history, storedEnvironments, variables, pendingSyncCount] = await Promise.all([
       db.collections.orderBy('createdAt').toArray(),
       db.requests.orderBy('updatedAt').reverse().toArray(),
+      db.editorDrafts.orderBy('updatedAt').toArray(),
       db.history.orderBy('createdAt').reverse().limit(50).toArray(),
       db.environments.orderBy('createdAt').toArray(),
       db.variables.toArray(),
@@ -85,10 +92,48 @@ export const useAppStore = create<AppState>((set, get) => ({
     }
     const savedActive = localStorage.getItem('active-environment')
     const activeEnvironmentId = environments.some((item) => item.id === savedActive) ? savedActive! : environments[0].id
-    set({ collections, requests, history, environments, variables, activeEnvironmentId, pendingSyncCount, hydrated: true })
+    if (!editorDrafts.length) {
+      editorDrafts = [get().draft]
+      await db.editorDrafts.put(editorDrafts[0])
+    }
+    const wantedDraftId = localStorage.getItem(activeDraftKey)
+    const draft = editorDrafts.find((item) => item.id === wantedDraftId) ?? editorDrafts.at(-1)!
+    localStorage.setItem(activeDraftKey, draft.id)
+    set({ collections, requests, history, environments, variables, activeEnvironmentId, pendingSyncCount, draftTabs: editorDrafts, draft, hydrated: true })
   },
-  updateDraft: (patch) => set(({ draft }) => ({ draft: { ...draft, ...patch, updatedAt: Date.now() } })),
-  selectRequest: (request) => set({ draft: structuredClone(hydrateLegacyQueryParams(request)), response: undefined, error: undefined }),
+  updateDraft: (patch) => set(({ draft, draftTabs }) => {
+    const updated = { ...draft, ...patch, updatedAt: Date.now() }
+    void db.editorDrafts.put(updated)
+    return { draft: updated, draftTabs: draftTabs.map((item) => item.id === updated.id ? updated : item) }
+  }),
+  newDraft: () => {
+    const draft = newRequest()
+    void db.editorDrafts.put(draft)
+    localStorage.setItem(activeDraftKey, draft.id)
+    set(({ draftTabs }) => ({ draft, draftTabs: [...draftTabs, draft], response: undefined, error: undefined }))
+  },
+  closeDraft: (id) => set(({ draft, draftTabs }) => {
+    const index = draftTabs.findIndex((item) => item.id === id)
+    if (index < 0) return { draft, draftTabs }
+    void db.editorDrafts.delete(id)
+    const remaining = draftTabs.filter((item) => item.id !== id)
+    if (remaining.length) {
+      const next = draft.id === id ? remaining[Math.min(index, remaining.length - 1)] : draft
+      localStorage.setItem(activeDraftKey, next.id)
+      return { draft: next, draftTabs: remaining, response: undefined, error: undefined }
+    }
+    const next = newRequest()
+    void db.editorDrafts.put(next)
+    localStorage.setItem(activeDraftKey, next.id)
+    return { draft: next, draftTabs: [next], response: undefined, error: undefined }
+  }),
+  selectRequest: (request) => set(({ draftTabs }) => {
+    const draft = structuredClone(hydrateLegacyQueryParams(request))
+    const exists = draftTabs.some((item) => item.id === draft.id)
+    void db.editorDrafts.put(draft)
+    localStorage.setItem(activeDraftKey, draft.id)
+    return { draft, draftTabs: exists ? draftTabs.map((item) => item.id === draft.id ? draft : item) : [...draftTabs, draft], response: undefined, error: undefined }
+  }),
   saveDraft: async () => {
     const draft = { ...get().draft, name: get().draft.name.trim() || 'Untitled request', updatedAt: Date.now() }
     await db.transaction('rw', db.collections, db.requests, db.syncOutbox, async () => {
