@@ -3,19 +3,21 @@
 ## System shape
 
 ```text
-                       optional, never required
-  PWA / browser  ──────────────────────────────────► sync service
-       │       local encrypted state                  ciphertext + revisions
+                 implemented, opt-in after configuration/unlock
+  PWA / browser  ──────────────────────────────────► Supabase Auth + sync
+       │       plaintext local working data            wrapped key + ciphertext
        │
-       ├── Fetch / WebSocket / SSE ─────────────────► CORS-enabled APIs
+       ├── Fetch (current) ─────────────────────────► CORS-enabled HTTP APIs
        │
-       ├── File System Access / import-export ──────► user-owned collection files
+       ├── JSON export (current) ───────────────────► downloaded collection files
        │
-       └── paired localhost connection ─────────────► optional local bridge
+       └── paired localhost connection (planned) ───► optional local bridge
                                                        native HTTP/gRPC/TLS
 ```
 
 The PWA is independently useful. The local bridge is a capability extension, not a relay through infrastructure run by the project. Sync is an adapter and can be absent at build time.
+
+WebSocket/SSE sessions, collection JSON import/restore and filesystem-backed workspaces are planned, not available transports/storage modes. The [sync status document](ENCRYPTED_SYNC_PLAN.md) separates implementation, test evidence, deployment requirements and remaining hardening.
 
 ## Current modules
 
@@ -26,7 +28,10 @@ The PWA is independently useful. The local bridge is a capability extension, not
 - `src/lib/syncOutbox.ts`: versioned, coalescing metadata-only mutation records for the offline sync foundation; it contains no transport and stores no duplicate entity payloads.
 - `src/lib/syncBinding.ts`: fail-closed local-workspace/account binding guard; no binding is created implicitly.
 - `src/lib/syncCrypto.ts` and `syncRecovery.ts`: provider-neutral AES-GCM envelope plus PBKDF2/AES-GCM passphrase wrapping for one-time new-browser unlock.
-- `src/lib/syncPayload.ts`: initial upload allow-list. Collection/environment metadata can be prepared, while requests are blocked pending credential/body review.
+- `src/lib/syncPayload.ts`: saved-request/metadata cloning and known credential-field filtering. It does not detect arbitrary secrets in URLs, bodies, scripts or custom headers.
+- `src/lib/syncService.ts`: explicit owner binding/bootstrap/unlock, persisted local key, encrypted push/pull, server-order latest-wins and Web Locks where available. Pulls currently page through the full revision log.
+- `src/components/AuthModal.tsx` and `src/lib/auth.ts`: optional account session and explicit sync enable/unlock; provider configuration is external.
+- `src/lib/scripts.ts`: constrained declarative interpreter; `ScriptEditor.tsx` / `ScriptSplit.tsx`: phase-aware suggestions and browser-local split preference.
 - `src/types.ts`: the current internal data contract.
 - `src/App.tsx`: first vertical-slice UI; split into feature modules as Phase 1 begins.
 
@@ -66,7 +71,9 @@ There is no maintainer-operated backend in the current milestone. Optional encry
 ### Local secrets
 
 - Mark variable values as public or secret.
-- Secret values are excluded from ordinary collection exports, UI search previews, history, logs, and crash reports.
+- The separate environment-variable table is not included in collection exports. Inline request credentials can still be exported. Local history contains the resolved sent request and can contain secrets; it is not a sanitized audit log.
+- Script logging masks known values on a best-effort basis. Do not claim universal redaction of unknown secrets or all errors.
+- Remembered sync keys are stored as base64 unwrapped key material in IndexedDB, not an encrypted local vault. Cloud encryption does not encrypt local working data at rest.
 - “Encrypting” IndexedDB with a key stored beside it does not protect against XSS; prioritize a strict CSP, dependency review, no remote scripts, and short-lived in-memory secret access.
 - Optional vault encryption should derive a key from a user passphrase or platform credential and clearly explain the recovery trade-off.
 
@@ -83,23 +90,23 @@ The staged implementation, packaging, protocol, UX, and acceptance plan lives in
 
 ### Scripts
 
-- The current milestone uses a small declarative interpreter rather than JavaScript. Supported commands set temporary variables/headers, assert response status/JSON paths, and capture response values into the active environment.
-- The interpreter has no DOM, storage, network, or bridge access. Captures pass through the application store and are marked secret by default.
+- The current milestone uses a small declarative interpreter rather than JavaScript. Commands cover temporary variables/headers, pre-request sleep/query/JSON-object field changes, typed response/header/body/duration assertions, logging, capture and explicit environment set/unset. See [README examples](../README.md#safe-script-examples) for the supported syntax.
+- The language exposes no arbitrary DOM, storage, network or bridge API. Explicit environment writes/captures pass through application persistence, stay local and are marked secret. The destination is the environment captured at Send time, not an environment selected mid-run.
 - If JavaScript compatibility is added later, run it in isolated workers with time and memory limits and expose only a narrow capability API. Do not execute request scripts through `eval`, `Function`, or the page's global context.
 - Pin a documented compatibility surface instead of emulating all Postman globals indefinitely.
 
 ### Variable isolation
 
 - Every variable belongs to exactly one environment tag; only the active environment participates in substitution.
-- Secret variables are masked in the UI and remain separate from collection exports and history.
+- Secret variables are masked in the UI and stored separately from collection exports. Substituted values may appear in local request history or copied cURL.
 - Built-ins currently include `$timestamp`, `$isoTimestamp`, and `$randomUUID`.
 - Missing variables fail before network transmission with a specific error rather than sending unresolved placeholders.
 
 ### Optional sync
 
 - Authenticate the user, but encrypt workspace content on the client with a separate key.
-- Prefer an append-only encrypted change log, per-device keys, deterministic conflict records, and exportable recovery material.
-- The server must not receive active API credentials unless a user explicitly creates a shared secret.
+- Current sync uses an append-only encrypted revision log, a shared per-workspace key and passphrase wrapping. Per-device keys/revocation and conflict/restore UI remain planned.
+- Known authorization fields are blanked before encryption, but other request fields can still contain secrets. There is no secret-sharing feature or comprehensive secret scanner.
 - Publish threat model, deletion semantics, backup retention, breach response, and metadata leakage before beta.
 
 ## Data format requirements

@@ -71,6 +71,7 @@ export interface ResponseSnapshot {
   requestedAt: number
   scriptLogs?: string[]
   scriptError?: string
+  scriptChecks?: Array<{ line: number; name: string; passed: boolean; message?: string }>
 }
 
 export interface HistoryEntry {

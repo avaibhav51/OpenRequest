@@ -22,3 +22,5 @@ A change is not complete until its user-facing and maintainer-facing documentati
 - keep purely cosmetic changes out of the documentation unless they alter navigation, accessibility, or how a user finds or operates a feature.
 
 Review documentation alongside tests and the production build before considering the work finished.
+
+Keep implementation, automated test coverage, deployed configuration and future work distinct. Do not call a suite verified merely because it exists, or call optional sync live merely because the code is implemented. Keep detailed sync/security status in `docs/ENCRYPTED_SYNC_PLAN.md` and link to it rather than creating new feature-plan files. Record missing regression cases when behavior changes, and update stale roadmap/status text in the same change.

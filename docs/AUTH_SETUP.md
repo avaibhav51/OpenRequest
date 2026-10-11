@@ -1,6 +1,6 @@
 # Optional authentication setup
 
-Authentication is optional. The PWA, local collections, environments, scripts, history, import, and export work indefinitely without an account. A configured deployment can additionally offer opt-in encrypted synchronization of saved requests and referenced collections.
+Authentication is optional. The PWA, local collections, environments, scripts, history, cURL import and JSON export work without an account (subject to browser storage/cache limits). Collection JSON import/restore is not implemented. A configured deployment can additionally offer opt-in encrypted synchronization of saved requests and referenced collections.
 
 The reference adapter uses the official open-source `@supabase/supabase-js` client. It works with Supabase's hosted Free plan or a self-hosted Supabase deployment. The current UI exposes email magic links and Google/GitHub social providers; see the [official Auth overview](https://supabase.com/docs/guides/auth). Password login is deliberately hidden until signup and recovery ship as one tested flow.
 
@@ -8,7 +8,7 @@ For the full storage and cost map, including where passwords, sessions, and OAut
 
 ## Fastest local setup
 
-The official OpenRequest Pages deployment intentionally leaves Supabase unconfigured because it has no operated sync backend. The following setup is for maintainers and for self-hosters/forks using their own Supabase project. With both `VITE_SUPABASE_*` values absent, no Supabase client is created and no Auth or sync request is sent.
+The public reference deployment policy is to leave Supabase unconfigured until it has an operational owner; confirm the actual build configuration separately. The following setup is for maintainers and for self-hosters/forks using their own Supabase project. With both `VITE_SUPABASE_*` values absent, no Supabase client is created and no Auth or sync request is sent.
 
 1. Create a Supabase account and a Free-plan project, or run Supabase locally/self-hosted. Choose and safely retain the database password even though this frontend never receives it.
 2. In the Supabase dashboard, open **Project Settings -> API** (or the current **Connect/API keys** screen) and copy the project URL and publishable key. A legacy `anon` key also works with the current variable name; never copy a secret or `service_role` key.
@@ -21,12 +21,14 @@ The official OpenRequest Pages deployment intentionally leaves Supabase unconfig
 
 4. In **Authentication -> URL Configuration**, set the Site URL to `http://localhost:5173` while developing and add `http://localhost:5173/**` to allowed redirects. Add the exact final GitHub Pages URL (including the repository path) and its `/**` form before deployment. Supabase documents the redirect allow-list behavior in its [Redirect URLs guide](https://supabase.com/docs/guides/auth/redirect-urls).
 5. In **Authentication -> Providers**, leave Email enabled. Configure Google and GitHub separately only if wanted; each requires an OAuth app/client with that provider and the callback URL shown by Supabase.
-6. Restart `npm run dev`. The top-bar experimental account button will enable the configured methods.
+6. Restart `npm run dev`. The top-bar Account control opens the configured sign-in methods.
 7. For a fork or independently hosted GitHub Pages site, add `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` as GitHub **Actions repository variables**, then rerun the Pages workflow. Do not add them to the official deployment until its operator deliberately accepts the abuse, email, quota, backup, privacy, and incident-response responsibilities.
 
-Apply the checked-in migration with `supabase db push` (or the equivalent reviewed migration workflow) before exposing the sync control. The frontend values enable authentication; the migrated tables and policies enable encrypted synchronization. Test magic links first, then each OAuth provider and the two-device sync flow independently.
+Apply all checked-in migrations with `supabase db push` (or the equivalent reviewed migration workflow) before exposing the sync control. The frontend values enable authentication; the migrated tables and policies enable encrypted synchronization. Test magic links first, then each OAuth provider and the two-device sync flow independently.
 
 The anon/publishable key is designed for frontend use with Row Level Security. Never place a service-role key, OAuth provider secret, or SMTP password in a `VITE_` variable. `.env.local` is ignored by this repository.
+
+Use HTTPS for hosted or phone sync: Web Crypto requires a secure context. Add each actual origin you test (for example `http://127.0.0.1:5173/**` as well as localhost) to the redirect configuration. Origins, ports and browser profiles have separate local data/sessions; changing localhost to 127.0.0.1 is not the same local workspace.
 
 ## Deferred operator checklist: enable sync later
 
@@ -46,9 +48,9 @@ Review the listed migrations before confirming the push. They create the owner-o
 
 ```bash
 npx supabase start
-npm run test:db
+npx supabase test db
 npm run test:db:api
-npx supabase stop --no-backup
+npx supabase stop
 ```
 
 These tests use disposable local users and Docker; do not point them at production.
@@ -99,6 +101,8 @@ Use repository **variables**, not secrets, because these two values are intentio
 
 The browser generates the workspace key. The sync passphrase wraps that key locally; neither the passphrase nor plaintext workspace key is uploaded. Supabase stores the wrapped key and encrypted revisions. Existing saved requests are bootstrapped; unsaved drafts, responses, history, variables, active authorization values, and never-synchronized empty collections remain local.
 
+Credential exclusion only covers known fields, not arbitrary secrets in URLs/bodies/scripts/custom headers. Basic usernames and inline payload passwords may be encrypted and uploaded. The remembered local key is not encrypted at rest. Review [exact scope and security limits](ENCRYPTED_SYNC_PLAN.md#what-is-uploaded-excluded-and-still-sensitive) before enabling. Existing local outbox entries can upload when joining an existing workspace; there is no merge/import preview yet.
+
 ### 6. Add another phone or computer
 
 1. Open the same deployment and sign into the same Supabase account.
@@ -107,7 +111,9 @@ The browser generates the workspace key. The sync passphrase wraps that key loca
 4. Confirm that a saved test request appears.
 5. Save a harmless change on one device and confirm it appears on the other after focus/reconnect or **Sync now**.
 
-The unlocked workspace key is retained in that browser profile. Normal launches restore the account session and local key; another unlock is needed after clearing site data, using private browsing/a new profile, session revocation, or losing the browser storage.
+The unwrapped workspace key is retained as base64 in that browser's IndexedDB, not encrypted at rest. Normal launches restore the account session and remembered key; a new profile or cleared/lost storage requires another passphrase unlock. Session expiry/revocation may require reauthentication, but does not itself erase the remembered key.
+
+After unlock, automatic sync attempts run on launch, pending-count changes, focus/visibility, reconnect and a 30-second interval while the app is running. Mobile background restrictions may delay them. Remote saved data does not overwrite an already-open editor tab; confirmed Revert loads its current saved version. Environment tags/values need local setup in this version. There is no user-facing disable-sync or cloud deletion control yet.
 
 ### 7. Operational checks
 
@@ -215,12 +221,12 @@ The sync distribution includes versioned SQL migrations, RLS policies, verificat
 
 Login alone does not upload anything. Enabling encrypted sync creates or unlocks a client-side workspace key, queues an initial snapshot of saved requests and referenced collections, and starts automatic push/pull. A new browser signs in and enters the sync passphrase once; the unlocked key is then retained in that browser's IndexedDB.
 
-The main synchronization challenges are:
+Remaining hardening areas (not evidence that transport is absent):
 
 - defining stable IDs, versions, migrations, and an export-compatible server format;
-- encrypting request bodies, variables, and credentials before upload while supporting recovery and additional devices;
+- reviewing secret-bearing request fields and expanding recovery safely; variable values remain intentionally local;
 - deciding which secrets never sync by default;
-- merging edits made offline on two devices without silently losing data;
+- testing concurrent offline edit/delete behavior and adding restore UI beyond current server-ordered latest-wins;
 - propagating deletions and preventing an old device from restoring deleted content;
 - enforcing per-user access with RLS and testing that one account cannot read another account's rows;
 - handling quotas, backups, account deletion, provider outages, and export away from Supabase;
@@ -230,4 +236,4 @@ The initial sync milestone covers saved requests and referenced collections, use
 
 One browser profile has one shared IndexedDB database regardless of which Supabase account is signed in. Enabling/unlocking sync creates an immutable owner binding, and the processor fails closed if another account signs in. Sign-out stops network synchronization without deleting local data; switching accounts never silently reassigns or merges the local workspace.
 
-A trusted browser should not ask the user to sign in on every launch. Supabase persists and refreshes the browser session, and OpenRequest will restore its locally protected workspace key. Sign-in/unlock returns only when the session is signed out, revoked or expired, site data is cleared, the user opens a private/new browser profile, or a configured security policy requires reauthentication.
+A trusted browser should not ask the user to sign in on every launch. Supabase persists and refreshes the browser session, and OpenRequest will restore its remembered, locally unencrypted workspace key. Sign-in may be needed after sign-out, expiry/revocation or provider policy. Passphrase unlock is separately needed when the remembered key is unavailable, such as a new profile or cleared site data.

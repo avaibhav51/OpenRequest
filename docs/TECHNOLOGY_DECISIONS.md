@@ -1,6 +1,6 @@
 # Technology decisions
 
-Last reviewed: 21 September 2026.
+Implementation status reconciled: 11 October 2026. External technology/version references are not a fresh vendor-policy or pricing audit.
 
 ## Decision summary
 
@@ -15,9 +15,9 @@ Last reviewed: 21 September 2026.
 | Database | PostgreSQL + Flyway | Planned | Mature open-source relational store and explicit, reviewable migrations. SQLite may be offered for single-user self-hosting after concurrency tests. |
 | Authentication | OIDC/OAuth adapter; Keycloak reference deployment | Evaluate in Phase 3 | Keycloak is mature and self-hostable. It can provide local accounts and broker Google/GitHub. The PWA must still work without it. |
 | Integration tests | JUnit 5 + Testcontainers | Planned | Tests the actual open-source database and services rather than substitutes. |
-| Local protocol bridge | Go, Rust, or Java native image | Deferred benchmark | A normal JVM distribution conflicts with “no setup.” Decide using signed binary size, memory, TLS/gRPC support, cross-compilation, and contributor familiarity—not novelty. |
+| Local protocol bridge | Java 25 LTS with bundled runtime | Planned, no companion code yet | Matches the agreed Java baseline; jlink/jpackage avoids a separate user Java install. HTTP-engine selection and cross-browser pairing still need a conformance spike. |
 
-## Why there is no backend today
+## Why there is no custom backend today
 
 REST requests, local collections, history, import/export, and an installable PWA are client-side capabilities. Adding Spring Boot now would create:
 
@@ -71,7 +71,7 @@ Every additional dependency needs a maintained upstream, compatible open-source 
 
 - Local mode has no user record and no token.
 - Hosted mode accepts standards-based OIDC identities. Google and GitHub are identity providers, not hard-coded database schemas.
-- Self-hosters can use Keycloak or another standards-compliant OIDC provider.
+- A future adapter could support Keycloak/other OIDC providers; the current frontend only connects through Supabase Auth.
 - Username/password requires password hashing, reset, verification, throttling, breached-password defenses, and session revocation. Do not implement a casual custom auth system.
 - Email code/link requires SMTP and abuse controls; production delivery is not guaranteed free.
 - SMS OTP requires a paid delivery provider in practice and is excluded from the reference app.
