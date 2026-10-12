@@ -48,6 +48,17 @@ test.beforeEach(async ({ page }) => {
   await page.goto('./')
 })
 
+test('sync workflow selectors open authorization and distinguish the New request action', async ({ page }) => {
+  await page.locator('.request-editor .tabbar').getByRole('button', { name: 'auth', exact: true }).click()
+  await page.getByRole('combobox', { name: /^Type/ }).selectOption('bearer')
+  await page.getByLabel('Token', { exact: true }).fill('{{accessToken}}')
+  await expect(page.getByLabel('Token', { exact: true })).toHaveValue('{{accessToken}}')
+  await page.getByLabel('Request name').fill('Original draft')
+  await expect(page.getByRole('button', { name: 'New request tab', exact: true })).toBeVisible()
+  await page.getByRole('button', { name: 'New', exact: true }).click()
+  await expect(page.getByLabel('Request name')).toHaveValue('Untitled request')
+})
+
 test('creates destinations inside Save and Move selectors without losing edits or saving early', async ({ page }) => {
   test.setTimeout(60000)
   await page.getByLabel('Request name').fill('Inline destinations')
