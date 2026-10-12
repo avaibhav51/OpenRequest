@@ -8,6 +8,10 @@ const passphrase = 'integration sync passphrase 2026'
 
 async function contextWithSession(browser: Browser, storageKey: string, session: unknown) {
   const context = await browser.newContext()
+  // Custom contexts otherwise allow a blocked locator action to consume the
+  // entire test timeout, obscuring the failing operation in CI.
+  context.setDefaultTimeout(15_000)
+  context.setDefaultNavigationTimeout(30_000)
   await context.addInitScript(({ key, value }) => {
     if (!localStorage.getItem(`${key}-test-seeded`)) { localStorage.setItem(key, value); localStorage.setItem(`${key}-test-seeded`, 'yes') }
   }, { key: storageKey, value: JSON.stringify(session) })
@@ -150,7 +154,11 @@ test.describe('encrypted cross-device synchronization', () => {
       await expect(first.getByText('This local workspace is bound to a different account. Synchronization remains paused.')).toBeVisible()
       const check = await other.from('sync_workspaces').select('id')
       expect(check.error).toBeNull(); expect(check.data).toEqual([])
-    } finally { await a.setOffline(false); await a.close(); await b.close() }
+    } finally {
+      // Timed-out tests may already have disposed their contexts. Teardown must
+      // not replace the original assertion/action failure with a protocol error.
+      await Promise.allSettled([a.close(), b.close()])
+    }
   })
 
   test('syncs saved requests, keeps unsaved edits local, and applies the latest server revision', async ({ browser }) => {
