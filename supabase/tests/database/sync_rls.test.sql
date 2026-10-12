@@ -87,7 +87,7 @@ select throws_ok(
        'upsert', 2, 'a5000000-0000-4000-8000-000000000003', decode(repeat('aa', 17), 'hex'), decode(repeat('03', 12), 'hex')
      ) $$,
   '42501',
-  'new row violates row-level security policy for table "sync_revisions"',
+  'Workspace unavailable',
   'Alice cannot append to Bob workspace'
 );
 select lives_ok(

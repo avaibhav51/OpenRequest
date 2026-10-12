@@ -6,6 +6,8 @@ The current `0.x` prototype is not yet suitable for storing production secrets. 
 
 Environment values marked secret are visually masked and excluded from collection exports, but they are not yet encrypted at rest. The basic script language is declarative and does not execute arbitrary JavaScript.
 
+The remembered workspace key in IndexedDB is unwrapped base64 key material, not an encrypted local vault. Local history can contain resolved API credentials, and collection exports can contain literal request secrets. Sync filtering blanks known credential fields only; arbitrary URL/query/body/script/custom-header secrets are not automatically detected. See [precise synchronization scope](docs/ENCRYPTED_SYNC_PLAN.md#what-is-uploaded-excluded-and-still-sensitive).
+
 Optional login uses public frontend configuration only. Do not commit Supabase service-role keys, OAuth client secrets, SMTP passwords, SMS provider credentials, database passwords, or signing keys. See [Auth data, storage, and costs](docs/AUTH_DATA_AND_COSTS.md).
 
 The browser Auth session contains access and refresh tokens. Treat XSS prevention, a restrictive Content Security Policy on supported hosts, dependency review, safe redirect handling, and avoiding tokens in logs/errors as release gates for public accounts. Optional sync encrypts revisions in the browser and relies on owner-only RLS; it remains an opt-in `0.x` feature without an independent audit. Do not reuse an account password as the sync passphrase or include long-lived production credentials in synchronized request bodies/scripts.

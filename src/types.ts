@@ -31,6 +31,7 @@ export interface RequestDraft {
   collectionId?: string
   folderPath?: string[]
   updatedAt: number
+  timeoutMs?: number
 }
 
 export interface Environment {
@@ -52,6 +53,7 @@ export interface WorkspaceVariable {
 }
 
 export interface Collection {
+  folders?: string[][]
   id: string
   schemaVersion: 1
   name: string
@@ -69,8 +71,12 @@ export interface ResponseSnapshot {
   bodyEncoding?: 'text' | 'base64'
   contentType: string
   requestedAt: number
+  finalUrl?: string
+  redirected?: boolean
+  requestMethod?: HttpMethod
   scriptLogs?: string[]
   scriptError?: string
+  scriptChecks?: Array<{ line: number; name: string; passed: boolean; message?: string }>
 }
 
 export interface HistoryEntry {

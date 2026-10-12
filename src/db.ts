@@ -7,10 +7,13 @@ export interface SyncSecret {
   id: 'primary'
   encodedWorkspaceKey: string
   lastPulledAt?: string
+  lastServerSequence?: number
   updatedAt: number
 }
 
 export interface SyncedEntityMarker {
+  deleted?: boolean
+  draftReplacementId?: string
   id: string
   entityType: 'collection' | 'request' | 'environment'
   entityId: string

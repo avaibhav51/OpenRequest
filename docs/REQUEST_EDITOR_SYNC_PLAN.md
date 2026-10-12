@@ -70,7 +70,10 @@ The current implementation supports multipart text fields. Imported `@file` path
 - Display images through safe object/data URLs when supported.
 - Identify binary responses and offer raw/base64 copy rather than corrupting them through text decoding.
 - Preserve accurate byte size and content type.
+- Show final URL/browser-reported redirects in expandable Request details and label zero-byte bodies explicitly, including expected HEAD/204/304 cases. Browser Fetch cannot expose intermediate hops or CORS-hidden headers.
 - Never execute returned HTML, SVG scripts, or remote response scripts inside the application origin.
+
+Per-tab Cancel request and tab closing abort pending script delays/network requests. A per-request timeout defaults to 30 seconds, can be disabled, and covers Fetch/body download rather than scripts. Cancellation/timeout cannot undo server-side effects or previously committed variable writes. See README for controls and Regression testing plan for automated evidence.
 
 ## Deferred updates
 

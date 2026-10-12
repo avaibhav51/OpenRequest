@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { Github, KeyRound, LogOut, Mail, MessageSquareText, RefreshCw, ShieldCheck, X } from 'lucide-react'
 import { authClient, authConfigured, type AuthUser } from '../lib/auth'
 import { emailOtpOptions, safeAuthError, type EmailAccountIntent } from '../lib/accountAuth'
-import { enableEncryptedSync, getSyncStatus, syncNow } from '../lib/syncService'
+import { enableEncryptedSync, getSyncStatus, syncNow, pruneSyncHistory } from '../lib/syncService'
 import { InfoTip } from './InfoTip'
 
 const authRedirectUrl = new URL(import.meta.env.BASE_URL, window.location.origin).href
@@ -56,6 +56,13 @@ export function AuthModal({ user, close, onSynced }: { user: AuthUser | null; cl
       setError(syncError instanceof Error ? syncError.message : String(syncError))
     } finally { setBusy('') }
   }
+  const cleanupHistory = async () => {
+    if (!user || !window.confirm('Permanently remove older encrypted revisions? The latest 20 revisions per object and every latest deletion marker remain. Older versions cannot be restored afterward. Export important work first.')) return
+    setBusy('cleanup'); setError(''); setMessage('')
+    try { setMessage(`Removed ${await pruneSyncHistory(user.id)} older encrypted revisions.`) }
+    catch (reason) { setError(reason instanceof Error ? reason.message : 'Cleanup failed. Apply the latest sync migration.') }
+    finally { setBusy('') }
+  }
   return <div className="modal-backdrop" onMouseDown={(event) => event.target === event.currentTarget && close()}>
     <section className="modal auth-modal" role="dialog" aria-modal="true" aria-label="Account and encrypted sync">
       <header><div><KeyRound /><div><h2>{user ? 'Account and encrypted sync' : 'Optional account access'}</h2><p>{user ? 'Synchronize saved requests across trusted browsers.' : 'Local use still requires no account.'}</p></div></div><button className="icon-button" aria-label="Close account" onClick={close}><X /></button></header>
@@ -64,6 +71,7 @@ export function AuthModal({ user, close, onSynced }: { user: AuthUser | null; cl
           <div className="signed-in-card"><ShieldCheck /><div><strong>Signed in</strong><span>{user.email ?? user.phone ?? user.id}</span></div></div>
           {syncEnabled ? <div className="sync-card"><strong className="with-info">End-to-end encrypted sync active <InfoTip label="Encrypted sync details" text="Saved requests are encrypted before upload. Supabase stores ciphertext and cannot decrypt it with publishable, database, or service-role credentials alone. Unsaved edits, responses, history, variables, empty local collections, and known active authorization values remain on this browser." /></strong><p>Saved requests synchronize automatically across browsers you unlock.</p><span>{pending} pending local change{pending === 1 ? '' : 's'}</span><button className="auth-secondary" onClick={() => synchronize(false)} disabled={Boolean(busy)}><RefreshCw size={14} /> Sync now</button></div> : <div className="sync-card"><strong>Enable or unlock encrypted sync</strong><p>Choose a private sync passphrase on the first browser. Enter the same passphrase once after signing in on each new browser; it is never sent to Supabase.</p><label>Sync passphrase<input type="password" autoComplete="new-password" value={passphrase} onChange={(event) => setPassphrase(event.target.value)} placeholder="At least 12 characters" /></label><button className="auth-primary" onClick={() => synchronize(true)} disabled={Boolean(busy) || passphrase.length < 12}>Enable / unlock sync</button><small>If all trusted browsers and this passphrase are lost, the encrypted cloud workspace cannot be recovered.</small></div>}
           {message && <p className="auth-message ok">{message}</p>}{error && <p className="auth-message bad">{error}</p>}
+          {syncEnabled && <button className="auth-secondary" disabled={Boolean(busy)} onClick={() => void cleanupHistory()}>Clean up old sync revisions</button>}
           <div className="modal-actions"><button onClick={() => run('logout', () => authClient!.auth.signOut(), 'Signed out.')} disabled={Boolean(busy)}><LogOut size={14} /> Sign out</button><button className="primary" onClick={close}>Done</button></div>
         </> : !authConfigured ? <>
           <div className="config-needed"><ShieldCheck /><div><strong>Login is not configured in this local build</strong><p>Add the two public Supabase settings described below, then restart the development server. The app stays fully usable locally meanwhile.</p></div></div>

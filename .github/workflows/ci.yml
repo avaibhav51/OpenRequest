@@ -58,6 +58,18 @@ jobs:
         run: supabase test db
       - name: Test public API with two authenticated users
         run: npm run test:db:api
+      - run: npx playwright install --with-deps chromium
+      - name: Test real encrypted browser synchronization
+        run: node scripts/test-sync-browser.mjs
+      - name: Upload sync integration report
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: sync-integration-report
+          path: |
+            playwright-report/
+            test-results/
+          retention-days: 14
       - name: Stop isolated Supabase stack
         if: ${{ always() }}
         run: supabase stop --no-backup

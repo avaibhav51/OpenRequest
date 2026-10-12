@@ -90,13 +90,13 @@ Optional auth variables can be added as repository variables:
 - `VITE_SUPABASE_URL`
 - `VITE_SUPABASE_ANON_KEY`
 
-The official OpenRequest deployment intentionally leaves both unset until hosted sync has an operational owner. Forks and self-hosted deployments may set their own project values. If unset, the application stays local-only and does not initialize Supabase.
+The public reference deployment policy is to leave both unset until hosted sync has an operational owner; source documentation does not verify the live build's current configuration. Forks and self-hosted deployments may set their own project values. If unset, the application stays local-only and does not initialize Supabase.
 
 These values are public frontend configuration. Do not add service-role keys, OAuth client secrets, SMTP passwords, or SMS provider credentials to frontend build variables.
 
 Add them at **Repository -> Settings -> Secrets and variables -> Actions -> Variables -> New repository variable**. They are injected when GitHub Actions builds the frontend, so changing one requires another deployment. Every visitor receives the same public project URL and publishable key; individual identity and access come from the user's Supabase session, not from hiding this key.
 
-The publishable/anon key is intentionally inspectable in the browser. Never substitute a Supabase secret or `service_role` key: those can bypass Row Level Security. Apply the checked-in migrations before offering encrypted sync. The browser uses its signed-in session under RLS, encrypts saved revisions locally, and uploads only after the user explicitly enables sync. See [Optional authentication setup](AUTH_SETUP.md) and [Encrypted synchronization and RLS](ENCRYPTED_SYNC_PLAN.md).
+The publishable/anon key is intentionally inspectable in the browser. Never substitute a Supabase secret or `service_role` key: those can bypass Row Level Security. Apply all checked-in migrations before offering encrypted sync; RLS alone is not an abuse-control or backup plan. The browser uses its signed-in session under RLS, encrypts saved revisions locally, and uploads only after the user explicitly enables sync. See [Optional authentication setup](AUTH_SETUP.md) and [Encrypted synchronization and RLS](ENCRYPTED_SYNC_PLAN.md).
 
 ## Cloudflare Pages
 
@@ -126,6 +126,8 @@ Upload the contents of `dist/` to any static host.
 
 The host must route unknown paths back to `index.html` for SPA navigation. Also avoid long caching for `index.html`, `manifest.webmanifest`, and the service worker. Fingerprinted JS/CSS assets can be cached aggressively.
 
+For a subpath deployment outside the supplied Pages workflow, build with the matching base, for example `npm run build -- --base=/OpenRequest/`. Serve that output at the same path and allow the complete callback URL in Supabase. Auth/sync values are compiled at build time; changing server runtime variables without rebuilding does not configure the PWA.
+
 ## Container self-hosting
 
 Build and run with Docker:
@@ -137,7 +139,7 @@ docker run --rm -p 8080:8080 open-request-workbench
 
 Open `http://localhost:8080`.
 
-With optional auth:
+With optional auth/sync public build configuration (runtime environment changes alone will not change a compiled Vite build):
 
 ```bash
 docker build \
@@ -147,6 +149,8 @@ docker build \
 ```
 
 Docker Compose:
+
+Compose takes optional build arguments from shell variables or its `.env` interpolation file; it does not automatically use Vite's `.env.local` for those arguments. Do not put private service keys there. Rebuild after changing the public settings.
 
 ```bash
 docker compose up --build

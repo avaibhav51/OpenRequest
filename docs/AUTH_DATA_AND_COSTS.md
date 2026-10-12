@@ -6,7 +6,7 @@ This project is designed so login is optional. Local mode works without any iden
 
 | Data | No login / local mode | Optional Supabase Auth mode |
 | --- | --- | --- |
-| Collections, folders, history, requests | Browser IndexedDB database `open-request-workbench` | Saved requests and referenced collection metadata can optionally sync as encrypted revisions; history and unsaved drafts remain local. |
+| Collections, folders, requests, drafts, history | Browser IndexedDB database `open-request-workbench`; folder paths/empty-folder metadata live inside collections/requests | Saved requests and eligible collection/folder metadata can optionally sync as encrypted revisions; never-synced empty collections, history and unsaved drafts remain local. |
 | Active theme, selected environment, default seed flags | Browser localStorage | Browser localStorage |
 | Secret variables | Browser IndexedDB, visually masked, excluded from normal collection export | Same today |
 | Supabase URL and anon key | Not used | `.env.local` during development or public frontend build variables in hosting |
@@ -16,17 +16,20 @@ This project is designed so login is optional. Local mode works without any iden
 | Email and user identity metadata | Not used | Supabase Auth database `auth` schema |
 | Google/GitHub OAuth secrets | Not used | Stored in Supabase/provider configuration, not in this frontend repository |
 | SMTP provider credentials | Not used | Supabase hosted project settings or self-hosted server environment |
-| Encrypted sync tables | Not present | Used only after an operator applies `supabase/migrations` and a user explicitly enables encrypted sync |
+| Encrypted sync tables | No remote service used | Created by all checked-in `supabase/migrations`; revisions are written only after explicit enable/unlock |
+| Workspace encryption key | Not used for cloud sync | Passphrase-wrapped copy on Supabase; unwrapped base64 key remembered in browser IndexedDB `syncSecrets` (not encrypted at rest) |
 
 Supabase documents that browser sessions use access and refresh tokens, and its JavaScript client persists sessions in localStorage by default. See [Supabase sessions](https://supabase.com/docs/guides/auth/sessions) and the [Supabase JavaScript auth reference](https://supabase.com/docs/reference/javascript/auth).
 
 ## What is not protected yet
 
-The current `0.x` app masks secret values in the UI, but it does not encrypt browser storage at rest. That means local device access, browser compromise, malicious extensions, or an XSS bug could expose local API secrets. Use test credentials or short-lived credentials until encrypted workspaces are implemented.
+The current `0.x` app masks secret values in the UI, but it does not encrypt browser storage at rest—including the remembered sync key. Local device access, browser compromise, malicious extensions or XSS can expose local API secrets and decrypted synchronized content. Cloud encryption is implemented, but it is not local vault protection or an independent security audit. Prefer test/short-lived credentials.
+
+Known literal Auth/header credentials are blanked before upload; safe variable references remain. Pull retains matching browser-local saved credentials rather than erasing them. Arbitrary URL/query/body/script/custom-header secrets are not detected. Local history can retain resolved credentials (the newest 50 after a dispatched run), and collection exports can include inline request secrets. See the [precise sync scope](ENCRYPTED_SYNC_PLAN.md#what-is-uploaded-excluded-and-still-sensitive).
 
 Signing in alone does not upload existing local collections. Explicitly enabling encrypted sync creates or unlocks the encrypted workspace and starts synchronization.
 
-The session tokens live in browser storage because this is a client-side PWA. That makes prevention of XSS, dependency compromise, unsafe third-party scripts, token logging, and malicious extensions especially important. Signing out invalidates/removes the selected Auth session but must not be confused with deleting local IndexedDB data, deleting a cloud account, or destroying future encryption recovery material.
+The session tokens live in browser storage because this is a client-side PWA. That makes prevention of XSS, dependency compromise, unsafe third-party scripts, token logging, and malicious extensions especially important. Sign-out requests Supabase Auth sign-out; the UI does not offer explicit per-device versus all-device scope controls. It must not be confused with deleting local IndexedDB data, deleting a cloud account, or erasing the remembered encryption key.
 
 ## Phone OTP cost
 
@@ -75,6 +78,6 @@ Never put these in frontend variables, GitHub Pages variables, or committed file
 
 For self-hosting Supabase, keep private values in server-side environment files or your secret manager. For hosted Supabase, configure them in the Supabase dashboard.
 
-## Future sync rule
+## Current sync boundary
 
-When sync is added, workspace content should be encrypted on the client before upload. The server should store ciphertext, revision metadata, and account/device records, not raw API keys or request secrets.
+Enabled sync encrypts saved request/collection content before upload; Supabase stores ciphertext, a wrapped workspace key and limited owner/revision metadata. Device registration/revocation and sharing are not implemented. A passive database operator cannot decrypt content using database credentials alone, but strong passphrases and a trustworthy frontend/device are still required. Account sign-in alone neither uploads nor unlocks a new browser. Follow [Auth setup](AUTH_SETUP.md) and keep independent exports.
