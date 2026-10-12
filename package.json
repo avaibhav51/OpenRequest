@@ -1,7 +1,7 @@
 {
   "name": "open-request-workbench",
   "private": true,
-  "version": "0.1.0",
+  "version": "1.1.0",
   "type": "module",
   "description": "A local-first, open-source API workbench for the web and mobile.",
   "license": "AGPL-3.0-or-later",
@@ -31,7 +31,7 @@
     "@types/react-dom": "^19.1.9",
     "@vitejs/plugin-react": "^5.0.3",
     "typescript": "~5.9.2",
-    "vite": "^7.1.7",
+    "vite": "^7.3.7",
     "vite-plugin-pwa": "^1.0.3",
     "vitest": "^5.0.1"
   }

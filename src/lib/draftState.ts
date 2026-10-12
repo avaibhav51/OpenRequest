@@ -13,7 +13,7 @@ const content = (draft: RequestDraft) => {
     body: normalized.body, bodyType: normalized.bodyType,
     bodyFields: pairs(normalized.bodyFields), auth: normalized.auth ?? { type: 'none' },
     preRequestScript: normalized.preRequestScript, postResponseScript: normalized.postResponseScript,
-    collectionId: normalized.collectionId ?? '', folderPath: normalized.folderPath ?? []
+    collectionId: normalized.collectionId ?? '', folderPath: normalized.folderPath ?? [], timeoutMs: normalized.timeoutMs ?? 30000
   })
 }
 
@@ -22,7 +22,7 @@ export const isDraftDirty = (draft: RequestDraft, saved?: RequestDraft): boolean
   const baseline = saved ?? {
     ...draft, name: 'Untitled request', method: 'GET', url: '', headers: [], params: [],
     body: '', bodyType: 'none', bodyFields: [], auth: { type: 'none' },
-    preRequestScript: '', postResponseScript: '', collectionId: undefined, folderPath: []
+    preRequestScript: '', postResponseScript: '', collectionId: undefined, folderPath: [], timeoutMs: 30000
   } satisfies RequestDraft
   return content(draft) !== content(baseline)
 }

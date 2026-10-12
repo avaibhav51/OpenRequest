@@ -35,6 +35,7 @@ export const createSyncOutboxEntry = (
   createdAt: previous?.createdAt ?? now,
   updatedAt: now,
   attempts: 0,
-  revisionId: previous?.revisionId ?? crypto.randomUUID(),
-  idempotencyKey: previous?.idempotencyKey ?? crypto.randomUUID(),
+  // A new mutation must not share a retry identity with an older in-flight upload.
+  revisionId: crypto.randomUUID(),
+  idempotencyKey: crypto.randomUUID(),
 })

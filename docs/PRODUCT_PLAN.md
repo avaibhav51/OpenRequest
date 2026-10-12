@@ -62,7 +62,7 @@ Its deferred-update queue currently contains two scoped items: the complete brow
 
 Basic, Bearer/JWT and API-key helpers are implemented. OAuth for signing into OpenRequest is separate from OAuth authorization for arbitrary target APIs; the latter helper is still planned.
 - **[M0 Must]** Environments and `{{variables}}`, with secret values excluded from normal export.
-- **[M0 Must]** Abort, retry, timeout, cookie visibility, TLS/error explanations.
+- **[M0 Done subset]** Per-tab cancellation, network/body timeout, final URL/redirect and empty-body diagnostics. Retry, cookie visibility and native TLS diagnostics remain future work; browser network errors cannot reliably identify CORS versus VPN/DNS/TLS.
 - **[M0 Must]** Import/export Postman v2.1, OpenAPI 3.x, HAR, cURL, and the project's versioned format.
 - **[M1 Should]** GraphQL schema introspection, variables, autocomplete, and operation history.
 - **[M1 Should]** WebSocket and SSE sessions.
@@ -71,7 +71,7 @@ Basic, Bearer/JWT and API-key helpers are implemented. OAuth for signing into Op
 
 ### Collections, files, and automation
 
-- **[M1 Next]** Collections → arbitrary nested folders → requests; duplicate, move, search, export at any node. This means folders inside a collection, not nested collections. Existing `folderPath` metadata remains compatible, but creation is hidden until the sidebar can render and manage it end to end.
+- **[M1 Implemented]** Saved-request management, 12-level folder creation/navigation, transactional subtree rename/reparent/delete, folder-aware search and subtree backups. Deleting a folder retains saved requests at collection root. Cross-collection folder moves and concurrent folder-metadata merging remain future work.
 - **[M0 Must]** Human-readable documented format with stable IDs, deterministic ordering, semantic diffs, and conversion tools. Evaluate [OpenCollection](https://www.opencollection.com/) before inventing a format.
 - **[M0 Must]** File System Access API where supported, plus explicit JSON/YAML import/export fallback on Safari/iOS.
 - **[M1 Should]** Pre-request/post-response scripts in a constrained worker sandbox; assertions and reusable snippets.
@@ -96,8 +96,8 @@ Basic, Bearer/JWT and API-key helpers are implemented. OAuth for signing into Op
 - **[M0 Must]** No identity in local mode. Device data is usable indefinitely without signup.
 - **[M1 Should] [Optional service]** Google and GitHub OAuth; email code/link; complete email/password signup and recovery as one deliverable. Use standards-based adapters so self-hosters can choose their own OpenID Connect provider.
 - **[M1 Initial implementation] [Optional service]** End-to-end encrypted workspace sync: encrypt on device; server stores ciphertext; the passphrase-wrapped recovery key belongs to the user. Active authorization values are excluded by default.
-- **[M1 Initial implementation] [Optional service]** Sync only saved requests; keep unsaved drafts, responses, history, variable values, and never-synchronized empty collections local. Resolve same-request saved revisions by server sequence; immutable history exists, while user-facing bounded undo remains to be added.
-- **[M2 Later] [Optional service]** Passkeys, device pairing and shared encrypted workspaces. The single-owner append-only encrypted revision log is already implemented; bounded retention/restore is not.
+- **[M1 Implemented] [Optional service]** Saved-only sync with commit-ordered keyset cursors/backoff, local-secret-preserving pulls and portable variable references. Up to 20 encrypted upserts can be recovered as a new local copy; confirmed owner cleanup retains latest revisions/tombstones. Unsaved drafts, responses, history and variable values remain local.
+- **[M2 Later] [Optional service]** Passkeys, device pairing and shared encrypted workspaces. Single-owner revision history, version-copy recovery and explicit per-object cleanup are implemented; automated retention and key/account lifecycle remain later.
 - **[Out of scope]** Mobile SMS OTP. Reliable delivery is a metered telecom service and abuse target, so it is deliberately excluded from the reference app. Prefer email links, passkeys/TOTP, or OAuth.
 
 Near-future prerequisites, to surface when choosing the next work item:
@@ -120,18 +120,26 @@ Near-future prerequisites, to surface when choosing the next work item:
 - **[P0 Done]** Bind responses, errors, and running state to the originating tab; snapshot history and script/environment context at Send time. Browser regression covers concurrent/out-of-order completions and closed-tab results.
 - **[P0 Verify]** Confirm pushed browser/database CI checks are green.
 - **[P0 Done: documentation audit]** Reconciled current implementation, test limits, deployment requirements, local-key/secret boundaries and remaining work across existing docs (11 October 2026).
-- **[P0 Updated tests, execution pending]** Gated two-profile tests distinguish saved records/confirmed Revert from preserved tabs and cover automatic updates without Sync now. Run against disposable Supabase; owner changes during a run and remote deletion coverage remain. Normal CI skips this suite.
-- **[P1 Next]** Cancel, configurable timeout, and clearer response diagnostics; collection import/restore; request management; then the optional local companion MVP.
+- **[P0 CI wiring implemented, live verification required]** Database-security CI runs configured browser sync scenarios, pgTAP and two-user public API checks against a disposable stack. Default unconfigured browser regression still skips live transport. Docker must be started for local validation; actual CI green checks remain a release requirement.
+- **[P1 Done]** Cancel individual runs (including script sleep and tab close), configurable per-request network/body deadlines, final URL/browser redirect details, explicit empty-body states and distinct cancellation/timeout/network errors. Cancellation cannot undo server-side work or already-committed variable writes. See README and Regression testing plan for behavior and evidence.
+- **[P1 Done: OpenRequest portability]** Collection/workspace JSON import with whole-file validation, preview, local-only transactional restoration, copy/skip-ID duplicates, older version-1 defaults and export/restore browser tests. Existing data/drafts are never overwritten. Unknown extra fields are discarded; third-party imports and full-workspace/key recovery remain future work.
+- **[Later: portability expansion]** Third-party adapters, environment-inclusive encrypted backups, reviewed bulk sync publishing and optional version-replacement/merge preview. Do not add implicit overwrite or automatic imported-script execution.
+- **[P1 Implemented: request management]** Saved-request search, rename/move, saved-copy duplication and transactional confirmed deletion. Open edits are preserved; local/remote deletes detach open copies into new browser-local drafts. Fresh revision identities plus revision-based acknowledgements protect saves/deletes made during in-flight uploads. Unit/encrypted-processor and deterministic browser coverage exist; gated live two-profile deletion execution is pending because Docker is stopped. Stronger concurrent/offline delete rules and purge remain P2 hardening.
+- **[P1 Next]** Optional local companion MVP; verify deployment/CI and the gated real sync lifecycle before promoting sync broadly.
+- **[P2 Implemented subset: folders]** Replaced the native collection-name prompt with an in-app dialog; added visible create controls, nested paths, first-save/move destinations, subtree backups and normalized SVG request actions. Folder creation is local unless its collection is already sync-eligible; placement uses saved-request mutations. Live two-device folder verification remains pending. See README and Regression testing plan.
+- **[Implemented: desktop drag/drop]** Saved requests move onto collection roots, folders/subfolders or Unfiled; edge scrolling and delayed hover expansion assist long trees. External drags are ignored. Touch/keyboard use Move. Folder reparenting uses Manage folder, not folder dragging; native touch dragging remains outside scope.
+
+- **[Implemented: October 12 reliability audit]** Patched Vite/transitive advisories, serialized draft persistence with Retry/close warnings, 50-entry database history retention, 10 MiB streamed response cap, modal focus/Escape/restoration, honest sidebar account/sync state and consent-based PWA updates. Offline reopening and worker-update regression are included; physical devices, hostile frontend/XSS review and complete OAuth/email callbacks are not certified by these tests.
 
 ### Phase 0 — local core (initial estimate, not a release deadline)
 
-Working PWA shell, REST Fetch requests, cURL import/export, IndexedDB collections/history/tabs, isolated environment variables, safe scripts, collection export, form/multipart text fields, responsive theme and in-app help. Close remaining gaps with multipart files, abort/timeout, request deletion/management, collection import/restore, offline-reload and expanded accessibility tests.
+Working PWA shell, REST Fetch with cancellation/timeouts/diagnostics and size caps, cURL import/export, durable draft feedback, saved-request/folder management, variables, scripts, backups and themes. Offline-reload/update and modal-keyboard tests are added. Remaining local-core expansion includes multipart files, third-party import, cross-collection folder moves and physical-device/accessibility review.
 
 **Exit:** Lighthouse installable/offline; no network request on first load except the API the user sends; major workflows have browser tests.
 
 ### Phase 1 — credible solo client (4–6 weeks)
 
-Environments, common auth helpers, persistent tabs and raw/preview responses are implemented. Remaining expansion includes nested folders, Postman/OpenAPI/HAR import, response search, WebSocket/SSE, command palette and compatibility/migration hardening.
+Environments, common auth helpers, persistent tabs, folder subtree management and raw/preview responses are implemented. Remaining expansion includes cross-collection folder moves, Postman/OpenAPI/HAR import, response search, WebSocket/SSE, command palette and compatibility/migration hardening.
 
 **Exit:** A developer can replace 80% of routine Postman/HTTPie GUI work without an account.
 

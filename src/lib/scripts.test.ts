@@ -28,6 +28,15 @@ describe('basic scripts', () => {
     const result = await runPreRequestScript('# sleep 99999\n// comment\nsleep 0', newRequest(), {})
     expect(result.logs).toEqual(['Slept 0 ms before sending'])
   })
+  it('cancels a sleep before later commands or staged persistence complete', async () => {
+    vi.useFakeTimers()
+    const controller = new AbortController()
+    const execution = runPreRequestScript('environment-set token = staged\nsleep 3000\nheader X-Later = no', newRequest(), {}, controller.signal)
+    const assertion = expect(execution).rejects.toMatchObject({ kind: 'cancelled' })
+    controller.abort()
+    await assertion
+    expect(vi.getTimerCount()).toBe(0)
+  })
 
   it.each(['sleep -1', 'sleep 1.5', 'sleep Infinity', 'sleep nope', 'sleep', 'sleep 30001', 'sleep 20000\nsleep 20000'])('rejects invalid or excessive delay: %s', async (script) => {
     vi.useFakeTimers()

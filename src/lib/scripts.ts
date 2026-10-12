@@ -1,6 +1,7 @@
 import { emptyPair, type RequestDraft, type ResponseSnapshot } from '../types'
 import { resolveText, type VariableMap } from './variables'
 import { hydrateLegacyQueryParams, urlWithQueryParams } from './queryParams'
+import { abortableDelay, checkCancelled } from './requestControl'
 
 export type EnvironmentMutation = { operation: 'set'; key: string; value: string } | { operation: 'unset'; key: string }
 
@@ -80,7 +81,8 @@ export const requestLogSecrets = (request: RequestDraft): string[] => {
   return [...credentials, ...request.headers.filter((header) => /authorization|cookie|api[-_]?key|token|secret/i.test(header.key)).map((header) => header.value)]
 }
 
-export async function runPreRequestScript(script: string, initialRequest: RequestDraft, initialVariables: VariableMap): Promise<ScriptRun> {
+export async function runPreRequestScript(script: string, initialRequest: RequestDraft, initialVariables: VariableMap, signal?: AbortSignal): Promise<ScriptRun> {
+  checkCancelled(signal)
   let request = structuredClone(hydrateLegacyQueryParams(initialRequest))
   const variables = { ...initialVariables }
   const logs: string[] = []
@@ -125,7 +127,7 @@ export async function runPreRequestScript(script: string, initialRequest: Reques
       logs.push(`${body ? 'Set' : 'Removed'} JSON body field ${path}`)
     } else if (sleep) {
       const milliseconds = Number(sleep[1])
-      if (milliseconds > 0) await new Promise<void>((resolve) => setTimeout(resolve, milliseconds))
+      await abortableDelay(milliseconds, signal)
       logs.push(`Slept ${milliseconds} ms before sending`)
     } else if (log) {
       logs.push(safeLog(log[1], [...logSecrets, ...Object.values(variables), ...requestLogSecrets(request)]))

@@ -17,7 +17,7 @@ describe('draft change indicators', () => {
       { bodyType: 'json' as const }, { bodyFields: [{ ...emptyPair(), key: 'file' }] },
       { auth: { type: 'bearer' as const, token: 'secret' } },
       { preRequestScript: 'variable x = 1' }, { postResponseScript: 'assert status == 200' },
-      { collectionId: 'collection' }, { folderPath: ['folder'] }
+      { collectionId: 'collection' }, { folderPath: ['folder'] }, { timeoutMs: 5000 }
     ]
     for (const patch of changes) expect(isDraftDirty({ ...saved, ...patch }, saved)).toBe(true)
   })
@@ -26,5 +26,10 @@ describe('draft change indicators', () => {
     const edited = { ...saved, params: [{ ...emptyPair(), key: 'x', value: '1' }] }
     expect(isDraftDirty(edited, saved)).toBe(false)
     expect(isDraftDirty({ ...edited, url: '' }, saved)).toBe(true)
+  })
+  it('treats legacy requests as using the default timeout', () => {
+    const saved = newRequest()
+    expect(isDraftDirty({ ...saved, timeoutMs: 30000 }, saved)).toBe(false)
+    expect(isDraftDirty({ ...saved, timeoutMs: 0 }, saved)).toBe(true)
   })
 })

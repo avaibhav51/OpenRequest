@@ -6,7 +6,7 @@ This project is designed so login is optional. Local mode works without any iden
 
 | Data | No login / local mode | Optional Supabase Auth mode |
 | --- | --- | --- |
-| Collections, requests, drafts, history | Browser IndexedDB database `open-request-workbench`; nested-folder UI is deferred | Saved requests and referenced collection metadata can optionally sync as encrypted revisions; history and unsaved drafts remain local. |
+| Collections, folders, requests, drafts, history | Browser IndexedDB database `open-request-workbench`; folder paths/empty-folder metadata live inside collections/requests | Saved requests and eligible collection/folder metadata can optionally sync as encrypted revisions; never-synced empty collections, history and unsaved drafts remain local. |
 | Active theme, selected environment, default seed flags | Browser localStorage | Browser localStorage |
 | Secret variables | Browser IndexedDB, visually masked, excluded from normal collection export | Same today |
 | Supabase URL and anon key | Not used | `.env.local` during development or public frontend build variables in hosting |
@@ -25,7 +25,7 @@ Supabase documents that browser sessions use access and refresh tokens, and its 
 
 The current `0.x` app masks secret values in the UI, but it does not encrypt browser storage at rest—including the remembered sync key. Local device access, browser compromise, malicious extensions or XSS can expose local API secrets and decrypted synchronized content. Cloud encryption is implemented, but it is not local vault protection or an independent security audit. Prefer test/short-lived credentials.
 
-Known Auth fields/headers are blanked before upload; arbitrary URL/query/body/script/custom-header secrets are not detected. Local history can retain resolved credentials, and collection exports can include inline request secrets. See the [precise sync scope](ENCRYPTED_SYNC_PLAN.md#what-is-uploaded-excluded-and-still-sensitive).
+Known literal Auth/header credentials are blanked before upload; safe variable references remain. Pull retains matching browser-local saved credentials rather than erasing them. Arbitrary URL/query/body/script/custom-header secrets are not detected. Local history can retain resolved credentials (the newest 50 after a dispatched run), and collection exports can include inline request secrets. See the [precise sync scope](ENCRYPTED_SYNC_PLAN.md#what-is-uploaded-excluded-and-still-sensitive).
 
 Signing in alone does not upload existing local collections. Explicitly enabling encrypted sync creates or unlocks the encrypted workspace and starts synchronization.
 

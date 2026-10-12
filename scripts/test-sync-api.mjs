@@ -13,6 +13,7 @@ const readSupabaseStatus = () => {
 
 const status = readSupabaseStatus()
 const url = status.API_URL
+if (!['127.0.0.1', 'localhost', '[::1]'].includes(new URL(url).hostname)) throw new Error('Tests may only provision users in a disposable loopback Supabase stack.')
 const publicKey = status.PUBLISHABLE_KEY ?? status.ANON_KEY
 const adminKey = status.SECRET_KEY ?? status.SERVICE_ROLE_KEY
 if (!url || !publicKey || !adminKey) throw new Error('Start the local Supabase stack before running the public API test.')
@@ -68,3 +69,9 @@ if (aliceReadError) throw aliceReadError
 if (aliceVisible.length !== 1) throw new Error('Alice could not read her own revision through the public API.')
 
 console.log('Public API isolation passed: Alice owns and reads her row; Bob can neither see nor append to it.')
+
+const { error: forbiddenCleanup } = await bob.rpc('prune_sync_revisions', { workspace: workspaceId, keep_per_object: 20 })
+if (!forbiddenCleanup) throw new Error('Bob could prune Alice revisions.')
+const { error: cleanupError } = await alice.rpc('prune_sync_revisions', { workspace: workspaceId, keep_per_object: 20 })
+if (cleanupError) throw cleanupError
+console.log('Owner-scoped retention RPC passed.')

@@ -17,14 +17,19 @@
 
 The PWA is independently useful. The local bridge is a capability extension, not a relay through infrastructure run by the project. Sync is an adapter and can be absent at build time.
 
-WebSocket/SSE sessions, collection JSON import/restore and filesystem-backed workspaces are planned, not available transports/storage modes. The [sync status document](ENCRYPTED_SYNC_PLAN.md) separates implementation, test evidence, deployment requirements and remaining hardening.
+OpenRequest collection/workspace JSON import restores saved records through one local IndexedDB transaction, with validation and non-destructive copy/skip-ID policies. WebSocket/SSE sessions, third-party imports and filesystem-backed workspaces remain planned. The [sync status document](ENCRYPTED_SYNC_PLAN.md) separates implementation, test evidence, deployment requirements and remaining hardening.
 
 ## Current modules
 
-- `src/lib/request.ts`: browser Fetch transport and plain-language error mapping.
+- `src/lib/request.ts`: browser Fetch transport with per-request network/body deadline, final URL/redirect metadata and plain-language error mapping; `requestControl.ts`: cancellation errors and abortable script delays. In-memory per-tab AbortControllers in the store are never persisted/synced; saved timeout settings are optional with a 30-second legacy default.
 - `src/lib/curl.ts`: deliberately small cURL importer/exporter. It must become a fixture-driven parser before claiming broad compatibility.
 - `src/db.ts`: versioned Dexie/IndexedDB schema.
+- `src/lib/collectionImport.ts` and `CollectionImportModal.tsx`: bounded whole-file validation, version-1 normalization, preview and duplicate planning. Restore does not execute scripts, replace drafts or enqueue uploads. First-time sync bootstrap still includes all saved requests. Unknown fields are discarded rather than treated as trusted persisted state; unsupported future versions fail closed.
 - `src/store.ts`: UI state and persistence operations.
+- `src/lib/requestManagement.ts` and `RequestManagementModal.tsx`: saved-only search/rename/move/duplicate/delete. Metadata edits, editor persistence and sync mutations are transactional; deletion recovers open copies under new local identities and cancels their old runs. Optional deletion/replacement fields on local sync markers require no IndexedDB index/schema migration. They are not encryption keys or remote payloads.
+- `src/lib/folders.ts`, `CreateFolderModal.tsx` and `FolderManagementModal.tsx`: bounded string-array hierarchy, parent inference, subtree export, creation and transactional rename/reparent/delete. Optional `Collection.folders` keeps empty paths; `RequestDraft.folderPath` places saved requests. Folder deletion retains requests at collection root. Folder metadata follows eligible encrypted collection revisions and latest-wins policy; cross-collection folder moves/concurrent merge semantics remain future work.
+- `src/lib/modalAccessibility.ts` applies modal focus containment, inert backgrounds, Escape and opener restoration. `pwaUpdate.ts` coordinates prompt-based worker updates; the app flushes draft persistence and requires confirmation before reload. Draft writes are serialized and failures are surfaced with Retry. History commits prune beyond 50 rows; streamed response reads enforce a 10 MiB decoded-byte cap.
+- The October 12 sync migration serializes revision sequence assignment under the workspace row lock, making keyset cursors safe against out-of-order commits. Authenticated `sync_protocol_version()` must return 2 before transport. Owner-scoped `prune_sync_revisions()` keeps at least 20 revisions/object, latest tombstones and referenced parents; only an explicit user confirmation invokes it. Request history decrypts the latest 20 upserts on demand and opens a local copy, not an implicit overwrite or script execution.
 - `src/lib/syncOutbox.ts`: versioned, coalescing metadata-only mutation records for the offline sync foundation; it contains no transport and stores no duplicate entity payloads.
 - `src/lib/syncBinding.ts`: fail-closed local-workspace/account binding guard; no binding is created implicitly.
 - `src/lib/syncCrypto.ts` and `syncRecovery.ts`: provider-neutral AES-GCM envelope plus PBKDF2/AES-GCM passphrase wrapping for one-time new-browser unlock.
@@ -117,7 +122,7 @@ The export envelope already includes `format` and `version`. Before compatibilit
 - preserve unknown fields during round trips;
 - separate secret references from values;
 - use stable IDs and deterministic serialization;
-- define folder subtree export and dependency behavior for inherited auth/environments;
+- folder subtree export includes saved descendants and ancestor paths; inherited auth/environment dependency semantics remain future work (no folder-level inheritance currently);
 - add golden fixtures for every importer and migration;
 - make CLI and PWA read the same model package.
 

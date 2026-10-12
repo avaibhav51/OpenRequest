@@ -4,7 +4,7 @@ import { db } from '../db'
 import type { Collection, Environment, RequestDraft } from '../types'
 import { assertSyncWorkspaceOwner, createSyncWorkspaceBinding } from './syncBinding'
 import { decryptSyncPayload, encryptSyncPayload, exportWorkspaceKey, fromBase64, generateWorkspaceKey, importWorkspaceKey, toBase64, type EncryptedSyncEnvelope, type SyncEncryptionContext } from './syncCrypto'
-import { createSyncPayload } from './syncPayload'
+import { createSyncPayload, mergeSyncedRequest } from './syncPayload'
 import { unwrapWorkspaceKey, wrapWorkspaceKey, type WrappedWorkspaceKey } from './syncRecovery'
 import { createSyncOutboxEntry, syncOutboxId, type SyncEntityType, type SyncOperation, type SyncOutboxEntry } from './syncOutbox'
 
@@ -36,6 +36,11 @@ export type SyncRunResult = { pushed: number; pulled: number; pending: number }
 const requireClient = () => {
   if (!authClient) throw new Error('Supabase is not configured for this build.')
   return authClient
+}
+
+const requireSyncProtocol = async () => {
+  const { data, error } = await requireClient().rpc('sync_protocol_version')
+  if (error || data !== 2) throw new Error('Apply the 20261012000100 sync migration before enabling this app version. Local work remains available.')
 }
 
 const localWorkspaceId = () => {
@@ -87,6 +92,7 @@ export async function enableEncryptedSync(user: User, passphrase: string) {
   const client = requireClient()
   const currentBinding = await db.syncBindings.get('primary')
   if (currentBinding) assertSyncWorkspaceOwner(currentBinding, user.id)
+  await requireSyncProtocol()
 
   const { data: existing, error: readError } = await client.from('sync_workspaces')
     .select('id, owner_id, wrapped_key, key_nonce, key_salt, key_iterations')
@@ -120,12 +126,12 @@ export async function enableEncryptedSync(user: User, passphrase: string) {
   return syncNow(user.id)
 }
 
-const readEntity = async (entry: SyncOutboxEntry): Promise<Collection | RequestDraft | Environment | { id: string }> => {
+const readEntity = async (entry: SyncOutboxEntry): Promise<Collection | RequestDraft | Environment | { id: string } | undefined> => {
   if (entry.operation === 'delete') return { id: entry.entityId }
   const entity = entry.entityType === 'collection' ? await db.collections.get(entry.entityId)
     : entry.entityType === 'request' ? await db.requests.get(entry.entityId)
       : await db.environments.get(entry.entityId)
-  if (!entity) return { id: entry.entityId }
+  if (!entity) return undefined
   return createSyncPayload(entity)
 }
 
@@ -135,7 +141,7 @@ async function pushPending(ownerId: string, workspaceId: string, key: CryptoKey)
   let pushed = 0
   for (const entry of entries) {
     const current = await db.syncOutbox.get(entry.id)
-    if (!current || current.updatedAt !== entry.updatedAt) continue
+    if (!current || current.revisionId !== entry.revisionId) continue
     const revisionId = entry.revisionId || crypto.randomUUID()
     const idempotencyKey = entry.idempotencyKey || crypto.randomUUID()
     if (!entry.revisionId || !entry.idempotencyKey) await db.syncOutbox.update(entry.id, { revisionId, idempotencyKey })
@@ -143,7 +149,9 @@ async function pushPending(ownerId: string, workspaceId: string, key: CryptoKey)
       workspaceId, revisionId, objectType: entry.entityType, objectId: entry.entityId,
       operation: entry.operation, envelopeVersion: 1,
     }
-    const envelope = await encryptSyncPayload(key, context, await readEntity(entry))
+    const payload = await readEntity(entry)
+    if (!payload || (await db.syncOutbox.get(entry.id))?.revisionId !== revisionId) continue
+    const envelope = await encryptSyncPayload(key, context, payload)
     const { error } = await client.from('sync_revisions').insert({
       id: revisionId, workspace_id: workspaceId, object_type: entry.entityType, object_id: entry.entityId,
       operation: entry.operation, client_sequence: entry.updatedAt, idempotency_key: idempotencyKey,
@@ -153,9 +161,10 @@ async function pushPending(ownerId: string, workspaceId: string, key: CryptoKey)
     if (error && error.code !== '23505') throw error
     await db.transaction('rw', db.syncOutbox, async () => {
       const latest = await db.syncOutbox.get(entry.id)
-      if (latest?.updatedAt === entry.updatedAt) await db.syncOutbox.delete(entry.id)
+      if (latest?.revisionId === revisionId) await db.syncOutbox.delete(entry.id)
     })
-    await db.syncedEntities.put({ id: entry.id, entityType: entry.entityType, entityId: entry.entityId, syncedAt: Date.now() })
+    const previousMarker = await db.syncedEntities.get(entry.id)
+    await db.syncedEntities.put({ id: entry.id, entityType: entry.entityType, entityId: entry.entityId, deleted: entry.operation === 'delete', draftReplacementId: entry.operation === 'delete' ? previousMarker?.draftReplacementId : undefined, syncedAt: Date.now() })
     pushed += 1
   }
   assertSyncWorkspaceOwner(await db.syncBindings.get('primary'), ownerId)
@@ -164,21 +173,30 @@ async function pushPending(ownerId: string, workspaceId: string, key: CryptoKey)
 
 async function pullLatest(workspaceId: string, key: CryptoKey) {
   const client = requireClient()
-  const data: RemoteRevision[] = []
+  const cursor = (await db.syncSecrets.get('primary'))?.lastServerSequence ?? 0
+  const latest = new Map<string, RemoteRevision>()
+  let lastSequence = cursor
   const pageSize = 500
-  for (let offset = 0; ; offset += pageSize) {
-    const { data: page, error } = await client.from('sync_revisions')
+  // Keyset pages are stable when old revisions are pruned concurrently. A bounded
+  // batch avoids monopolizing the UI on first join; later runs continue the cursor.
+  for (let batch = 0; batch < 20; batch++) {
+    let query = client.from('sync_revisions')
       .select('id, workspace_id, object_type, object_id, operation, envelope_version, ciphertext, nonce, algorithm, created_at, server_sequence')
-      .eq('workspace_id', workspaceId).order('server_sequence', { ascending: true }).range(offset, offset + pageSize - 1)
+      .eq('workspace_id', workspaceId)
+    query = query.gt('server_sequence', lastSequence)
+    const { data: page, error } = await query.order('server_sequence', { ascending: true }).range(0, pageSize - 1)
     if (error) throw error
-    data.push(...page as RemoteRevision[])
+    for (const row of page as RemoteRevision[]) {
+      if (!Number.isSafeInteger(row.server_sequence) || row.server_sequence <= lastSequence) throw new Error('Invalid synchronization sequence ordering.')
+      lastSequence = row.server_sequence
+      latest.set(`${row.object_type}:${row.object_id}`, row)
+    }
     if ((page?.length ?? 0) < pageSize) break
   }
-  const latest = new Map<string, RemoteRevision>()
-  for (const row of data) latest.set(`${row.object_type}:${row.object_id}`, row)
   let pulled = 0
+  let deferred = false
   for (const row of latest.values()) {
-    if (await db.syncOutbox.get(syncOutboxId(row.object_type, row.object_id))) continue
+    if (await db.syncOutbox.get(syncOutboxId(row.object_type, row.object_id))) { deferred = true; continue }
     const context: SyncEncryptionContext = {
       workspaceId, revisionId: row.id, objectType: row.object_type, objectId: row.object_id,
       operation: row.operation, envelopeVersion: row.envelope_version,
@@ -188,27 +206,38 @@ async function pullLatest(workspaceId: string, key: CryptoKey) {
       ciphertext: postgresToBase64(row.ciphertext), nonce: postgresToBase64(row.nonce),
     }
     const payload = await decryptSyncPayload<Collection | RequestDraft | Environment | { id: string }>(key, context, envelope)
-    if (row.object_type === 'collection') {
-      if (row.operation === 'delete') await db.collections.delete(row.object_id)
-      else await db.collections.put(payload as Collection)
-    } else if (row.object_type === 'request') {
-      if (row.operation === 'delete') await db.requests.delete(row.object_id)
-      else await db.requests.put(payload as RequestDraft)
-    } else {
-      if (row.operation === 'delete') await db.environments.delete(row.object_id)
-      else await db.environments.put(payload as Environment)
-    }
-    await db.syncedEntities.put({ id: syncOutboxId(row.object_type, row.object_id), entityType: row.object_type, entityId: row.object_id, syncedAt: Date.now() })
-    pulled += 1
+    const applied = await db.transaction('rw', db.collections, db.requests, db.environments, db.syncOutbox, db.syncedEntities, async () => {
+      if (await db.syncOutbox.get(syncOutboxId(row.object_type, row.object_id))) return false
+      if (row.object_type === 'collection') {
+        if (row.operation === 'delete') await db.collections.delete(row.object_id)
+        else await db.collections.put(payload as Collection)
+      } else if (row.object_type === 'request') {
+        if (row.operation === 'delete') await db.requests.delete(row.object_id)
+        else await db.requests.put(mergeSyncedRequest(payload as RequestDraft, await db.requests.get(row.object_id)))
+      } else {
+        if (row.operation === 'delete') await db.environments.delete(row.object_id)
+        else await db.environments.put(payload as Environment)
+      }
+      const markerId = syncOutboxId(row.object_type, row.object_id)
+      const marker = await db.syncedEntities.get(markerId)
+      await db.syncedEntities.put({ id: markerId, entityType: row.object_type, entityId: row.object_id, deleted: row.operation === 'delete', draftReplacementId: row.operation === 'delete' ? marker?.draftReplacementId : undefined, syncedAt: Date.now() })
+      return true
+    })
+    if (applied) pulled += 1
+    else deferred = true
   }
+  // Do not advance past unapplied pending objects or failed decryption/application.
+  if (!deferred && lastSequence > cursor) await db.syncSecrets.update('primary', { lastServerSequence: lastSequence })
   return pulled
 }
 
 let activeRun: Promise<SyncRunResult> | null = null
+let activeOwner: string | undefined
 export function syncNow(ownerId: string): Promise<SyncRunResult> {
-  if (activeRun) return activeRun
+  if (activeRun) return activeOwner === ownerId ? activeRun : Promise.reject(new Error('A different account owns the active synchronization.'))
   const run = async () => {
     const binding = assertSyncWorkspaceOwner(await db.syncBindings.get('primary'), ownerId)
+    await requireSyncProtocol()
     const secret = await db.syncSecrets.get('primary')
     if (!secret) throw new Error('Unlock this synchronized workspace on this browser first.')
     const key = await importWorkspaceKey(secret.encodedWorkspaceKey)
@@ -220,7 +249,31 @@ export function syncNow(ownerId: string): Promise<SyncRunResult> {
     ? navigator.locks.request<SyncRunResult>('openrequest-encrypted-sync', { mode: 'exclusive' }, run as unknown as LockGrantedCallback<SyncRunResult>)
     : run()
   ) as Promise<SyncRunResult>
-  const tracked = queued.finally(() => { activeRun = null })
+  const tracked = queued.finally(() => { activeRun = null; activeOwner = undefined })
+  activeOwner = ownerId
   activeRun = tracked
   return tracked
+}
+
+export async function pruneSyncHistory(ownerId: string) {
+  const binding = assertSyncWorkspaceOwner(await db.syncBindings.get('primary'), ownerId)
+  const { data, error } = await requireClient().rpc('prune_sync_revisions', { workspace: binding.remoteWorkspaceId, keep_per_object: 20 })
+  if (error) throw error
+  return Number(data)
+}
+
+export async function requestSyncHistory(requestId: string) {
+  const client = requireClient()
+  const { data: session, error: sessionError } = await client.auth.getUser()
+  if (sessionError || !session.user) throw new Error('Sign in to view encrypted request history.')
+  const binding = assertSyncWorkspaceOwner(await db.syncBindings.get('primary'), session.user.id)
+  const secret = await db.syncSecrets.get('primary')
+  if (!secret) throw new Error('Unlock sync on this browser first.')
+  const { data, error } = await client.from('sync_revisions').select('*').eq('workspace_id', binding.remoteWorkspaceId)
+    .eq('object_type', 'request').eq('object_id', requestId).eq('operation', 'upsert').order('server_sequence', { ascending: false }).limit(20)
+  if (error) throw error
+  const key = await importWorkspaceKey(secret.encodedWorkspaceKey)
+  return Promise.all((data as RemoteRevision[]).map(async (row) => ({ id: row.id, createdAt: row.created_at,
+    request: mergeSyncedRequest(await decryptSyncPayload<RequestDraft>(key, { workspaceId: binding.remoteWorkspaceId, revisionId: row.id, objectType: 'request', objectId: requestId, operation: 'upsert', envelopeVersion: row.envelope_version },
+      { envelopeVersion: row.envelope_version, algorithm: row.algorithm, ciphertext: postgresToBase64(row.ciphertext), nonce: postgresToBase64(row.nonce) }), await db.requests.get(requestId)) })))
 }

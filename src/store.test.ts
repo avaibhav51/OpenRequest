@@ -1,13 +1,13 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { db } from './db'
-import { useAppStore } from './store'
+import { useAppStore, flushDraftPersistence } from './store'
 import { newRequest, type ResponseSnapshot } from './types'
 
 vi.mock('./db', () => ({ db: {
-  transaction: vi.fn(async (_mode: unknown, _environments: unknown, _variables: unknown, work: () => Promise<void>) => work()),
+  transaction: vi.fn(async (...args: any[]) => args.at(-1)()),
   environments: { get: vi.fn(async () => undefined) },
   editorDrafts: { delete: vi.fn(async () => undefined), put: vi.fn(async () => undefined) },
-  history: { add: vi.fn(async () => undefined) },
+  history: { add: vi.fn(async () => undefined), orderBy: () => ({ reverse: () => ({ offset: () => ({ delete: vi.fn(async () => undefined) }) }) }) },
   variables: { put: vi.fn(async () => undefined) }
 } }))
 
@@ -23,6 +23,17 @@ beforeEach(() => {
 })
 
 describe('per-tab request runs', () => {
+  it('reports failed draft persistence, keeps live edits, and retries the latest copy', async () => {
+    vi.mocked(db.editorDrafts.put).mockRejectedValueOnce(new Error('Quota exceeded'))
+    useAppStore.getState().updateDraft({ url: 'https://example.test/latest' })
+    await expect(flushDraftPersistence()).rejects.toThrow('storage errors')
+    expect(useAppStore.getState().persistenceError).toContain('could not be stored')
+    expect(useAppStore.getState().draft.url).toBe('https://example.test/latest')
+    await useAppStore.getState().retryDraftPersistence()
+    await flushDraftPersistence()
+    expect(useAppStore.getState().persistenceError).toBe('')
+    expect(db.editorDrafts.put).toHaveBeenLastCalledWith(expect.objectContaining({ url: 'https://example.test/latest' }))
+  })
   it('allows independent runs but prevents repeated sends in one running tab', () => {
     const store = useAppStore.getState()
     const a = store.beginRun('A')!
@@ -42,7 +53,7 @@ describe('per-tab request runs', () => {
     store.finishRun('A', first, response('first'))
     const second = store.beginRun('A')!
     store.finishRun('A', first, undefined, 'obsolete error')
-    expect(useAppStore.getState().requestRuns.A).toEqual({ runId: second, busy: true })
+    expect(useAppStore.getState().requestRuns.A).toMatchObject({ runId: second, busy: true })
   })
   it('drops closed-tab results without affecting another tab', async () => {
     const store = useAppStore.getState()
@@ -54,7 +65,20 @@ describe('per-tab request runs', () => {
     await store.closeDraft(a.id)
     store.finishRun(a.id, runA, response('closed'))
     expect(useAppStore.getState().requestRuns[a.id]).toBeUndefined()
-    expect(useAppStore.getState().requestRuns[b.id]).toEqual({ runId: runB, busy: true })
+    expect(useAppStore.getState().requestRuns[b.id]).toMatchObject({ runId: runB, busy: true })
+  })
+  it('cancels only the selected run, ignores its late success, and allows resend', () => {
+    const store = useAppStore.getState()
+    const a = store.beginRun('A')!
+    store.beginRun('B')
+    const controller = useAppStore.getState().requestRuns.A.controller!
+    store.cancelRun('A')
+    expect(controller.signal.aborted).toBe(true)
+    expect(useAppStore.getState().requestRuns.B.busy).toBe(true)
+    store.finishRun('A', a, response('late'))
+    expect(useAppStore.getState().requestRuns.A).toMatchObject({ busy: false, error: 'Request cancelled.' })
+    expect(useAppStore.getState().requestRuns.A.response).toBeUndefined()
+    expect(store.beginRun('A')).not.toBe(a)
   })
   it('records the provided snapshot, never the currently selected draft', async () => {
     const snapshot = { ...newRequest(), name: 'Sent request', url: 'https://example.com?original=1', body: 'original body' }

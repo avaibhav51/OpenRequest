@@ -1,6 +1,6 @@
 # Optional authentication setup
 
-Authentication is optional. The PWA, local collections, environments, scripts, history, cURL import and JSON export work without an account (subject to browser storage/cache limits). Collection JSON import/restore is not implemented. A configured deployment can additionally offer opt-in encrypted synchronization of saved requests and referenced collections.
+Authentication is optional. The PWA, local collections, environments, scripts, history, cURL import and OpenRequest JSON export/restore work without an account (subject to browser storage/cache limits). Import does not queue uploads; explicitly save an imported request to queue it under existing sync. First-time sync enablement bootstraps all saved requests, including imports. A configured deployment can offer opt-in encrypted synchronization of saved requests and referenced collections.
 
 The reference adapter uses the official open-source `@supabase/supabase-js` client. It works with Supabase's hosted Free plan or a self-hosted Supabase deployment. The current UI exposes email magic links and Google/GitHub social providers; see the [official Auth overview](https://supabase.com/docs/guides/auth). Password login is deliberately hidden until signup and recovery ship as one tested flow.
 
@@ -46,14 +46,20 @@ npx supabase db push
 
 Review the listed migrations before confirming the push. They create the owner-only workspace and append-only encrypted-revision tables, wrapped-key fields, server ordering, constraints, indexes, and Row Level Security policies. Run the checked-in local security tests separately before schema changes are released:
 
+**October 12 upgrade:** include `20261012000100_sync_order_and_retention.sql` before deploying this frontend with sync configured. It replaces identity-only ordering with workspace-locked assignment, adds owner-confirmed revision cleanup and authenticated protocol discovery. The frontend requires protocol 2 and pauses sync with an actionable message if this migration is absent; local-only use needs no database change. It never automatically prunes cloud rows. Review the SECURITY DEFINER cleanup RPC: it checks `auth.uid()`, locks an explicitly owned workspace, enforces at least 20 revisions per object and retains latest deletion markers/linked parents. Anonymous execution is revoked.
+
+Migrations explicitly grant the required table/sequence/function access instead of relying on public-schema defaults, addressing Supabase's October 30, 2026 default-grant change. Test on a disposable migrated stack; do not grant blanket anonymous access to repair a deployment. If using Supabase CLI/Management API automation, prefer a project-scoped management token with only needed permissions. That token is an operator secret, separate from the frontend public key and never a `VITE_` setting.
+
 ```bash
 npx supabase start
 npx supabase test db
 npm run test:db:api
+node scripts/test-sync-browser.mjs
 npx supabase stop
 ```
 
 These tests use disposable local users and Docker; do not point them at production.
+Install Chromium once with `npx playwright install chromium` before the browser-sync command. CI installs it and runs this command in database-security automatically. The runner supplies the local public URL/key to a separate port-4175 build without printing the local admin key. Local database/API/browser verification requires Docker Desktop running; applying a migration is not itself proof that tests passed.
 
 ### 2. Configure authentication and redirects
 

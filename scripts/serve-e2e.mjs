@@ -1,5 +1,5 @@
 import { createReadStream } from 'node:fs'
-import { stat } from 'node:fs/promises'
+import { stat, readFile } from 'node:fs/promises'
 import { createServer } from 'node:http'
 import { extname, join, normalize } from 'node:path'
 
@@ -7,6 +7,7 @@ const host = '127.0.0.1'
 const port = Number(process.env.OPENREQUEST_E2E_PORT ?? 4173)
 const mount = '/OpenRequest/'
 const root = join(process.cwd(), 'dist')
+let pwaVersion = 0
 const types = {
   '.css': 'text/css; charset=utf-8',
   '.html': 'text/html; charset=utf-8',
@@ -19,6 +20,30 @@ const types = {
 
 const server = createServer(async (request, response) => {
   const url = new URL(request.url ?? '/', `http://${host}:${port}`)
+  if (url.pathname === `${mount}__fixtures/pwa-version` && request.method === 'POST') {
+    pwaVersion++; response.writeHead(204).end(); return
+  }
+  if (url.pathname === `${mount}sw.js`) {
+    response.writeHead(200, { 'cache-control': 'no-store', 'content-type': 'text/javascript' })
+    response.end(`${await readFile(join(root, 'sw.js'), 'utf8')}\n// regression version ${pwaVersion}\n`)
+    return
+  }
+  if (url.pathname === `${mount}__fixtures/slow`) {
+    response.writeHead(200, { 'content-type': 'application/json' })
+    if (url.searchParams.get('body') === 'slow') response.flushHeaders()
+    const timer = setTimeout(() => response.end('{"complete":true}'), 5000)
+    response.on('close', () => clearTimeout(timer))
+    return
+  }
+  if (url.pathname === `${mount}__fixtures/redirect`) {
+    response.writeHead(302, { location: `${mount}__fixtures/empty?status=403` }).end()
+    return
+  }
+  if (url.pathname === `${mount}__fixtures/empty`) {
+    const status = Number(url.searchParams.get('status') ?? 204)
+    response.writeHead([200, 204, 304, 403].includes(status) ? status : 204, { 'x-empty-fixture': 'true' }).end()
+    return
+  }
   if (url.pathname === `${mount}__fixtures/profile`) {
     const body = JSON.stringify({ id: 42, name: 'Regression fixture', mode: url.searchParams.get('mode') })
     response.writeHead(200, {
